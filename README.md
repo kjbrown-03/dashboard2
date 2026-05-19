@@ -27,4 +27,4 @@ http://ADRESSE_IP_DU_PC:8060
 - Les KPI mensuels comparent le mois choisi avec le mois precedent.
 - Les KPI hebdomadaires comparent la semaine choisie avec la semaine precedente.
 - Pour un indicateur mensuel, le filtre semaine est desactive.
-- Le KPI Hebdo reprend les indicateurs essentiels des autres blocs: remboursement, retards, PAR 7, motos actives et visites terrain.
+- Le KPI Hebdo reprend les indicateurs essentiels des autres blocs: performance hebdomadaire, retards, PAR 7, taux de motos actives et visites terrain.

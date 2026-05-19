@@ -39,9 +39,7 @@ GROUPS = {
     "operationnel": "Operationnel",
     "social": "Social",
     "fintech": "Fintech",
-    "risque": "Risque",
     "hebdo": "KPI Hebdo",
-    "terrain": "Suivi terrain",
     "discipline": "Discipline",
 }
 
@@ -55,34 +53,25 @@ MOCK_NAMES = [
 ]
 
 INDICATORS = [
-    Indicator("montant_collecte_jour", "Montant collecte du jour", "financier", "Total collecte du jour", "daily", "FCFA", True),
-    Indicator("montant_attendu_jour", "Montant attendu du jour", "financier", "Nombre beneficiaires x paiement journalier", "daily", "FCFA", True),
-    Indicator("taux_remboursement_jour", "Taux de remboursement du jour", "financier", "Montant rembourse du jour / Montant attendu du jour x 100", "daily", "%", True, 95, 90),
-    Indicator("paiements_temps_jour", "Nombre de paiements a temps", "financier", "Paiements avant l'heure limite", "daily", "", True),
-    Indicator("retardataires_j1", "Nombre de retardataires J+1", "financier", "Beneficiaires qui n'ont pas paye aujourd'hui", "daily", "", False, 5, 15),
-    Indicator("taux_remboursement", "Taux de remboursement global", "financier", "Montant total rembourse / Montant total attendu x 100", "both", "%", True, 95, 90),
-    Indicator("taux_defaut", "Taux de defaut", "financier", "Montant en defaut / Montant total finance x 100", "monthly", "%", False, 5, 10),
-    Indicator("par7", "PAR 7 jours", "financier", "Encours en retard > 7 jours / Encours total x 100", "weekly", "%", False, 5, 10),
-    Indicator("taux_paiement_temps", "Taux de paiement a temps", "financier", "Nombre paiements effectues a temps / Nombre paiements attendus x 100", "weekly", "%", True, 95, 90),
+    # --- FINANCIER QUOTIDIEN ---
+    Indicator("performance_jour", "Performance du jour", "financier", "Montant collecte du jour / Montant attendu du jour", "daily", "%", True, 95, 90),
+    # --- FINANCIER HEBDOMADAIRE ---
+    Indicator("performance_hebdomadaire", "Performance hebdomadaire", "financier", "Montant collecte de la semaine / Montant attendu de la semaine", "weekly", "%", True, 95, 90),
+    # --- FINANCIER MENSUEL ---
+    Indicator("performance_mensuelle", "Performance mensuelle", "financier", "Montant collecte du mois / Montant attendu du mois", "monthly", "%", True, 95, 90),
     Indicator("montant_moyen", "Montant moyen paye par beneficiaire", "financier", "Total collecte / Nombre de beneficiaires", "monthly", "FCFA", True),
-    Indicator("recovery_rate", "Taux de recuperation du portefeuille", "financier", "Montant recupere / Montant total prete x 100", "monthly", "%", True, 85, 70),
     Indicator("rentabilite", "Rentabilite du projet", "financier", "Revenus - couts", "monthly", "FCFA", True),
     Indicator("cout_par_benef", "Cout par beneficiaire", "financier", "Cout total projet / Nombre beneficiaires", "monthly", "FCFA", False),
-    Indicator("motos_actives_jour", "Nombre de motos actives", "operationnel", "Motos ayant travaille aujourd'hui", "daily", "", True),
-    Indicator("motos_inactives_jour", "Nombre de motos inactives", "operationnel", "Motos sans activite aujourd'hui", "daily", "", False, 5, 15),
-    Indicator("courses_jour", "Courses / livraisons du jour", "operationnel", "Activite reelle du jour", "daily", "", True, 900, 700),
-    Indicator("taux_motos_actives", "Taux de motos actives", "operationnel", "Nombre motos actives / Nombre total motos x 100", "both", "%", True, 95, 90),
-    Indicator("taux_utilisation", "Taux d'utilisation", "operationnel", "Jours actifs / Jours totaux x 100", "weekly", "%", True, 85, 75),
-    Indicator("moyenne_courses", "Nombre moyen de courses/jour", "operationnel", "Courses totales / Jours de la periode", "weekly", "", True, 900, 700),
+    # --- OPERATIONNEL (all = quotidien + hebdo + mensuel) ---
+    Indicator("taux_motos_actives", "Taux de motos actives", "operationnel", "Nombre motos actives / Nombre total motos x 100", "all", "%", True, 95, 90),
+    Indicator("taux_pannes", "Taux de pannes", "operationnel", "Nombre motos en panne / Nombre total motos x 100 (moto inactive OU moto-man inactif)", "weekly", "%", False, 3, 7),
     Indicator("temps_inactivite", "Temps d'inactivite", "operationnel", "Nombre de jours sans activite", "weekly", "jours", False, 1, 3),
-    Indicator("taux_pannes", "Taux de pannes", "operationnel", "Nombre motos en panne / Total motos x 100", "weekly", "%", False, 3, 7),
-    Indicator("taux_moyen_activite", "Taux moyen d'activite", "operationnel", "Activite moyenne mensuelle de la flotte", "monthly", "%", True, 95, 90),
-    Indicator("performance_reseau", "Performance globale du reseau", "operationnel", "Score combine activite, utilisation et pannes", "monthly", "%", True, 85, 70),
+    # --- SOCIAL ---
     Indicator("revenu_moyen_estime_hebdo", "Revenu moyen estime / beneficiaire", "social", "Revenus estimes / Nombre beneficiaires", "weekly", "FCFA", True),
     Indicator("revenu_moyen_reel", "Revenu moyen reel", "social", "Revenus apres projet / Nombre beneficiaires", "monthly", "FCFA", True),
     Indicator("taux_maintien", "Taux de maintien dans le programme", "social", "Nombre beneficiaires actifs / Nombre initial x 100", "both", "%", True, 98, 95),
-    Indicator("emplois_crees", "Nombre d'emplois crees", "social", "Emplois directs + emplois indirects", "monthly", "", True),
     Indicator("amelioration_revenus", "Taux d'amelioration des revenus", "social", "Revenus apres projet vs revenus avant projet", "monthly", "%", True, 20, 15),
+    Indicator("emplois_crees", "Emplois crees", "social", "Emplois directs + emplois indirects", "monthly", "", True),
     Indicator("paiements_digitaux_jour", "% paiements digitaux Yunus Pay", "fintech", "Paiements digitaux / Paiements totaux du jour x 100", "daily", "%", True, 100, 80),
     Indicator("taux_digitalisation", "Taux de digitalisation des paiements", "fintech", "Paiements digitaux / Paiements totaux x 100", "weekly", "%", True, 100, 80),
     Indicator("autres_moyens_paiement", "Autres moyens de paiement", "fintech", "Paiements non digitaux / Paiements totaux x 100", "weekly", "%", False, 5, 20),
@@ -91,60 +80,46 @@ INDICATORS = [
     Indicator("revenus_fintech", "Revenu de commission", "fintech", "Somme des commissions sur transactions", "monthly", "FCFA", True),
     Indicator("nb_utilisateurs_actifs", "Nombre d'utilisateurs actifs", "fintech", "Utilisateurs ayant realise au moins une transaction", "monthly", "", True),
     Indicator("freq_utilisation", "Frequence d'utilisation par beneficiaire", "fintech", "Transactions / Nombre de beneficiaires", "monthly", "", True),
-    Indicator("visites_terrain_jour", "Visites terrain effectuees", "terrain", "Nombre de visites realisees aujourd'hui", "daily", "", True, 8, 5),
-    Indicator("incidents_jour", "Incidents du jour", "terrain", "Pannes, refus et problemes clients", "daily", "", False, 2, 5),
-    Indicator("taux_visites", "Taux de visites effectuees", "terrain", "Visites prevues / Visites realisees x 100", "weekly", "%", False, 100, 115),
-    Indicator("motos_visitees", "Nombre de motos visitees", "terrain", "Nombre de motos visitees sur la periode", "weekly", "", True),
-    Indicator("delai_reaction", "Delai moyen de reaction", "terrain", "Temps entre defaut et intervention", "weekly", "jours", False, 1, 2),
-    Indicator("visites_par_benef", "Nombre de visites par beneficiaire", "terrain", "Total visites / Nombre beneficiaires", "weekly", "", True, 1, 0.5),
-    Indicator("taux_resolution", "Taux de resolution des incidents", "terrain", "Incidents resolus / Incidents detectes x 100", "weekly", "%", True, 95, 80),
-    Indicator("nb_beneficiaires_retard", "Nombre de beneficiaires en retard", "risque", "Nombre de beneficiaires avec retard", "weekly", "", False, 5, 15),
-    Indicator("retard_moyen", "Retard moyen", "risque", "Moyenne des jours de retard", "weekly", "jours", False, 2, 5),
-    Indicator("par30", "PAR 30 jours", "risque", "Encours en retard > 30 jours / Encours total x 100", "monthly", "%", False, 5, 10),
-    Indicator("cas_defaut", "Nombre de cas en defaut", "risque", "Nombre de cas en defaut critique", "monthly", "", False, 5, 15),
-    Indicator("motos_recuperees", "Nombre de motos recuperees", "risque", "Motos recuperees apres defaut critique", "monthly", "", False, 1, 3),
     Indicator("score_discipline", "Score discipline moyen", "discipline", "(Paiement x 40%) + (Régularité x 20%) + (Activité x 20%) - (Retard x 20%)", "both", "%", True, 90, 70),
     Indicator("top_beneficiaires", "Top 20 des plus disciplinés", "discipline", "Les 20 beneficiaires les plus disciplines", "both", "", True),
     Indicator("flop_beneficiaires", "Top 20 des plus indisciplinés", "discipline", "Les 20 beneficiaires les moins disciplines", "both", "", False, 5, 15),
-    Indicator("hebdo_remboursement", "Taux de remboursement", "hebdo", "Repris du KPI financier", "weekly", "%", True, 95, 90),
-    Indicator("hebdo_nb_retards", "Nombre de retards / 7 jours", "hebdo", "Repris du KPI risque", "weekly", "", False, 5, 15),
-    Indicator("hebdo_par7", "PAR 7 jours", "hebdo", "Repris du KPI financier", "weekly", "%", False, 5, 10),
-    Indicator("hebdo_motos_actives", "Motos actives", "hebdo", "Repris du KPI operationnel", "weekly", "%", True, 95, 90),
-    Indicator("hebdo_visites", "Visites terrain effectuees", "hebdo", "Repris du KPI suivi terrain", "weekly", "%", True, 95, 85),
+    Indicator("hebdo_performance", "Performance hebdomadaire", "hebdo", "Repris du KPI financier", "weekly", "%", True, 95, 90),
+    Indicator("hebdo_motos_actives", "Taux de motos actives", "hebdo", "Repris du KPI operationnel", "weekly", "%", True, 95, 90),
 ]
 
 INDICATOR_BY_KEY = {indicator.key: indicator for indicator in INDICATORS}
 
 INACTIVE_MOTO_INDICATORS = {
-    "motos_inactives_jour",
     "taux_motos_actives",
-    "taux_utilisation",
-    "taux_moyen_activite",
-    "performance_reseau",
     "temps_inactivite",
     "hebdo_motos_actives",
 }
 
 OPERATIONAL_MOTO_INDICATORS = {
-    "motos_actives_jour",
-    "motos_inactives_jour",
-    "courses_jour",
     "taux_motos_actives",
-    "taux_utilisation",
-    "moyenne_courses",
     "temps_inactivite",
     "taux_pannes",
-    "taux_moyen_activite",
-    "performance_reseau",
     "hebdo_motos_actives",
 }
 
+FINANCIAL_PERFORMANCE_INDICATORS = {
+    "performance_jour",
+    "performance_hebdomadaire",
+    "performance_mensuelle",
+    "hebdo_performance",
+}
+
+SOCIAL_INDICATORS_IMPLEMENTED = {
+    "revenu_moyen_estime_hebdo",
+    "revenu_moyen_reel",
+    "taux_maintien",
+    "amelioration_revenus",
+    "emplois_crees",
+}
+
 HEBDO_SOURCE_INDICATORS = {
-    "hebdo_remboursement": "taux_remboursement",
-    "hebdo_nb_retards": "nb_beneficiaires_retard",
-    "hebdo_par7": "par7",
+    "hebdo_performance": "performance_hebdomadaire",
     "hebdo_motos_actives": "taux_motos_actives",
-    "hebdo_visites": "taux_visites",
 }
 
 REQUIRED_COLUMNS = [
@@ -152,10 +127,6 @@ REQUIRED_COLUMNS = [
     "montant_total_attendu",
     "montant_total_rembourse",
     "montant_total_finance",
-    "montant_en_defaut",
-    "encours_total",
-    "encours_retard_7",
-    "encours_retard_30",
     "paiements_temps",
     "paiements_attendus",
     "total_collecte",
@@ -182,16 +153,6 @@ REQUIRED_COLUMNS = [
     "commissions",
     "utilisateurs_actifs",
     "transactions",
-    "visites_realisees",
-    "visites_prevues",
-    "delai_reaction",
-    "incidents_resolus",
-    "incidents_detectes",
-    "beneficiaires_retard",
-    "cas_defaut",
-    "retard_total_jours",
-    "montant_recupere_apres_defaut",
-    "motos_recuperees",
     "cout_total_projet",
     "beneficiaires_finances",
     "score_discipline",
@@ -403,30 +364,21 @@ def compute_metrics(frame: pd.DataFrame, mode: str) -> dict[str, float]:
     last = frame.iloc[-1].to_dict()
     days = max(len(frame), 1)
 
+    # taux_pannes : moto en panne OU moto inactive (moto-man inactif) / total motos
+    motos_non_operationnelles = sums.get("motos_panne", 0) + max(sums.get("total_motos", 0) - sums.get("motos_actives", 0), 0)
     values = {
-        "montant_collecte_jour": sums["total_collecte"],
-        "montant_attendu_jour": sums["montant_total_attendu"],
-        "taux_remboursement_jour": safe_ratio(sums["montant_total_rembourse"], sums["montant_total_attendu"]) * 100,
-        "paiements_temps_jour": sums["paiements_temps"],
-        "retardataires_j1": sums["beneficiaires_retard"],
-        "taux_remboursement": safe_ratio(sums["montant_total_rembourse"], sums["montant_total_attendu"]) * 100,
-        "taux_defaut": safe_ratio(avgs["montant_en_defaut"], avgs["montant_total_finance"]) * 100,
-        "par7": safe_ratio(avgs["encours_retard_7"], avgs["encours_total"]) * 100,
-        "taux_paiement_temps": safe_ratio(sums["paiements_temps"], sums["paiements_attendus"]) * 100,
+        "performance_jour": safe_ratio(sums["total_collecte"], sums["montant_total_attendu"]) * 100,
+        "performance_hebdomadaire": safe_ratio(sums["total_collecte"], sums["montant_total_attendu"]) * 100,
+        "performance_mensuelle": safe_ratio(sums["total_collecte"], sums["montant_total_attendu"]) * 100,
+
         "montant_moyen": safe_ratio(sums["total_collecte"], last["nombre_beneficiaires"]),
-        "recovery_rate": safe_ratio(sums["montant_recupere"], sums["montant_total_prete"]) * 100,
         "rentabilite": sums["montant_total_rembourse"] + sums["commissions"] - sums["cout_total_projet"],
         "cout_par_benef": safe_ratio(sums["cout_total_projet"], last["nombre_beneficiaires"]),
-        "motos_actives_jour": last["motos_actives"],
-        "motos_inactives_jour": max(last["total_motos"] - last["motos_actives"], 0),
-        "courses_jour": sums["courses"],
-        "taux_motos_actives": safe_ratio(avgs["motos_actives"], avgs["total_motos"]) * 100,
-        "taux_utilisation": safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100,
-        "moyenne_courses": safe_ratio(sums["courses"], days),
+        # taux_motos_actives = motos actives / total motos (couvre daily/weekly/monthly via frequency="all")
+        "taux_motos_actives": safe_ratio(sums["motos_actives"], sums["total_motos"]) * 100,
         "temps_inactivite": round(safe_ratio(sums["jours_sans_activite"], days)),
-        "taux_pannes": safe_ratio(avgs["motos_panne"], avgs["total_motos"]) * 100,
-        "taux_moyen_activite": safe_ratio(avgs["motos_actives"], avgs["total_motos"]) * 100,
-        "performance_reseau": max(0, (safe_ratio(avgs["motos_actives"], avgs["total_motos"]) * 100 + safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100 + (100 - safe_ratio(avgs["motos_panne"], avgs["total_motos"]) * 100)) / 3),
+        # taux_pannes = (pannes + inactives) / total — une moto ne travaille pas si panne OU moto-man inactif
+        "taux_pannes": safe_ratio(motos_non_operationnelles, sums["total_motos"] * days) * 100 if days > 0 else safe_ratio(sums["motos_panne"], sums["total_motos"]) * 100,
         "revenu_moyen_estime_hebdo": safe_ratio(sums["revenus_estimes"], sums["nombre_beneficiaires"]),
         "revenu_moyen_social": safe_ratio(sums["revenus_estimes"], sums["nombre_beneficiaires"]),
         "revenu_moyen_reel": safe_ratio(sums["revenus_apres"], sums["nombre_beneficiaires"]),
@@ -441,32 +393,14 @@ def compute_metrics(frame: pd.DataFrame, mode: str) -> dict[str, float]:
         "revenus_fintech": sums["commissions"],
         "nb_utilisateurs_actifs": last["utilisateurs_actifs"],
         "freq_utilisation": safe_ratio(sums["transactions"], last["nombre_beneficiaires"]),
-        "visites_terrain_jour": sums["visites_realisees"],
-        "incidents_jour": sums["incidents_detectes"],
-        "taux_visites": safe_ratio(sums["visites_prevues"], sums["visites_realisees"]) * 100,
-        "motos_visitees": min(
-            sums["visites_realisees"],
-            last["total_motos"] if last.get("total_motos", 0) > 0 else sums["visites_realisees"],
-        ),
-        "delai_reaction": avgs["delai_reaction"],
-        "visites_par_benef": safe_ratio(sums["visites_realisees"], last["nombre_beneficiaires"]),
-        "taux_resolution": safe_ratio(sums["incidents_resolus"], sums["incidents_detectes"]) * 100,
-        "nb_beneficiaires_retard": last["beneficiaires_retard"],
-        "retard_moyen": safe_ratio(sums["retard_total_jours"], sums["beneficiaires_retard"]),
-        "par30": safe_ratio(avgs["encours_retard_30"], avgs["encours_total"]) * 100,
-        "cas_defaut": sums["cas_defaut"],
-        "recovery_apres_defaut": safe_ratio(sums["montant_recupere_apres_defaut"], sums["montant_en_defaut"]) * 100,
-        "motos_recuperees": sums["motos_recuperees"],
+
         "score_discipline": max(0, (safe_ratio(sums["paiements_temps"], sums["paiements_attendus"]) * 100 * 0.4) + (safe_ratio(sums["montant_total_rembourse"], sums["montant_total_attendu"]) * 100 * 0.2) + (safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100 * 0.2) - (safe_ratio(sums["beneficiaires_retard"], sums["paiements_attendus"]) * 100 * 0.2)),
         "top_beneficiaires": last["top_beneficiaires"],
         "flop_beneficiaires": last["flop_beneficiaires"],
         "taux_croissance": (safe_ratio(last["beneficiaires_finances"], first["beneficiaires_finances"]) - 1) * 100,
     }
-    values["hebdo_remboursement"] = values["taux_remboursement"]
-    values["hebdo_nb_retards"] = sums["beneficiaires_retard"]
-    values["hebdo_par7"] = values["par7"]
+    values["hebdo_performance"] = values["performance_hebdomadaire"]
     values["hebdo_motos_actives"] = values["taux_motos_actives"]
-    values["hebdo_visites"] = values["taux_visites"]
     return values
 
 
@@ -518,6 +452,8 @@ FREQUENCY_LABELS = {
 
 
 def indicator_modes(indicator: Indicator) -> list[str]:
+    if indicator.frequency == "all":
+        return ["daily", "weekly", "monthly"]
     if indicator.frequency == "both":
         return ["weekly", "monthly"]
     return [indicator.frequency]
@@ -578,12 +514,27 @@ def indicator_options(group: str, mode: str | None = None) -> list[dict[str, str
     return [{"label": indicator.name, "value": indicator.key} for indicator in indicators_for_group(group, mode)]
 
 
+
+# Map hidden groups (removed from GROUPS) to visible ones for dashboard rendering
+HIDDEN_GROUP_REMAP = {
+    "risque": "financier",
+    "terrain": "operationnel",
+}
+
+
 def source_indicator_key(indicator_key: str) -> str:
-    return indicator_key
+    """Resolve a hebdo alias to its real source indicator key."""
+    return HEBDO_SOURCE_INDICATORS.get(indicator_key, indicator_key)
 
 
 def source_group_for_indicator(indicator_key: str) -> str:
-    return INDICATOR_BY_KEY[indicator_key].group
+    """Get the visible group for an indicator, resolving hebdo aliases first."""
+    real_key = source_indicator_key(indicator_key)
+    key = real_key if real_key in INDICATOR_BY_KEY else indicator_key
+    if key in INDICATOR_BY_KEY:
+        group = INDICATOR_BY_KEY[key].group
+        return HIDDEN_GROUP_REMAP.get(group, group)
+    return "financier"
 
 
 def kpi_card(title: str, value: str, status: str, color: str, button_id: dict | None = None) -> html.Div:
@@ -687,67 +638,49 @@ def alert_cause_count(indicator: Indicator, frame: pd.DataFrame, values: dict[st
     key = indicator.key
     count = 0
 
-    if key in {"motos_actives_jour", "courses_jour", "moyenne_courses"}:
-        count = int(max(last["motos_actives"], 0))
-    elif key in {"motos_inactives_jour", "taux_motos_actives", "taux_utilisation", "taux_moyen_activite", "performance_reseau", "temps_inactivite", "hebdo_motos_actives"}:
-        count = int(max(last["total_motos"] - last["motos_actives"], values.get("motos_inactives_jour", 0)))
+    if key in {"taux_motos_actives", "temps_inactivite", "hebdo_motos_actives"}:
+        count = int(max(last["total_motos"] - last["motos_actives"], 0))
     elif key in {"taux_pannes"}:
         count = int(max(last["motos_panne"], 0))
-    elif key in {"incidents_jour", "taux_resolution", "delai_reaction"}:
-        count = int(max(values.get("incidents_jour", values.get("taux_resolution", 0)), 0))
-    elif key in {"retardataires_j1", "taux_paiement_temps", "taux_remboursement", "taux_remboursement_jour", "hebdo_remboursement"}:
-        count = int(max(sums.get("paiements_attendus", 0) - sums.get("paiements_temps", 0), last["beneficiaires_retard"]))
-    elif key in {"nb_beneficiaires_retard", "retard_moyen"}:
-        count = int(max(values.get("nb_beneficiaires_retard", 0), last["beneficiaires_retard"]))
-    elif key in {"par7", "hebdo_par7"}:
-        avg_exposure = safe_ratio(last.get("encours_total", 0), max(last.get("nombre_beneficiaires", 0), 1))
-        count = int(max(last["beneficiaires_retard"], safe_ratio(last.get("encours_retard_7", 0), avg_exposure)))
-    elif key in {"par30"}:
-        avg_exposure = safe_ratio(last.get("encours_total", 0), max(last.get("nombre_beneficiaires", 0), 1))
-        count = int(max(last["cas_defaut"], safe_ratio(last.get("encours_retard_30", 0), avg_exposure)))
-    elif key in {"hebdo_nb_retards"}:
-        count = int(max(sums.get("beneficiaires_retard", 0), last["beneficiaires_retard"]))
-    elif key in {"taux_defaut", "cas_defaut", "recovery_apres_defaut", "motos_recuperees"}:
-        count = int(max(values.get("cas_defaut", 0), last.get("cas_defaut", 0)))
+    elif key in FINANCIAL_PERFORMANCE_INDICATORS:
+        count = int(max(sums.get("paiements_temps", 0), last.get("paiements_temps", 0)))
+    elif key in {"taux_paiement_temps", "hebdo_performance"}:
+        count = int(max(sums.get("paiements_attendus", 0) - sums.get("paiements_temps", 0), last.get("beneficiaires_retard", 0)))
     elif key in {"flop_beneficiaires", "score_discipline"}:
         count = int(max(values.get("flop_beneficiaires", 0), last.get("flop_beneficiaires", 0)))
     elif key in {"paiements_digitaux_jour", "taux_digitalisation", "autres_moyens_paiement"}:
-        count = int(max(last["paiements_totaux"] - last["paiements_digitaux"], 0))
-    elif key in {"taux_visites", "visites_terrain_jour", "visites_par_benef", "motos_visitees", "hebdo_visites"}:
-        count = int(max(last["visites_prevues"] - last["visites_realisees"], 0))
+        count = int(max(last.get("paiements_totaux", 0) - last.get("paiements_digitaux", 0), 0))
 
     return max(count, 0)
 
 
 def involved_title(indicator: Indicator) -> str:
+    if indicator.key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return "Bénéficiaires défaillants"
     if indicator.key in INACTIVE_MOTO_INDICATORS:
         return "Motos inactives"
     if indicator.key == "taux_pannes":
         return "Motos en panne"
     if indicator.key in OPERATIONAL_MOTO_INDICATORS:
         return "Motos impliquees"
-    if indicator.key in {"incidents_jour", "taux_resolution", "delai_reaction"}:
-        return "Incidents impliques"
     return "Beneficiaires impliques"
 
 
 def involved_description(indicator: Indicator) -> str:
+    if indicator.key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return "Liste des bénéficiaires avec leur performance sur la période actuelle et précédente."
     if indicator.key in INACTIVE_MOTO_INDICATORS:
-        return "Liste filtree des motos inactives qui causent l'alerte de l'indicateur selectionne."
+        return "Liste filtrée des motos inactives qui causent l'alerte de l'indicateur sélectionné."
     if indicator.key == "taux_pannes":
         return "Liste filtree des motos en panne qui causent l'alerte de l'indicateur selectionne."
     if indicator.key in OPERATIONAL_MOTO_INDICATORS:
         return "Liste des motos liees a l'indicateur operationnel selectionne."
-    if indicator.key in {"incidents_jour", "taux_resolution", "delai_reaction"}:
-        return "Liste filtree des incidents et motos qui causent l'alerte de l'indicateur selectionne."
     return "Liste filtree des codes, telephones et motos qui causent l'alerte de l'indicateur selectionne."
 
 
 def alert_cause_category(indicator: Indicator) -> str:
     if indicator.key in OPERATIONAL_MOTO_INDICATORS:
         return "Moto"
-    if indicator.key in {"incidents_jour", "taux_resolution", "delai_reaction"}:
-        return "Incident"
     return "Beneficiaire"
 
 
@@ -758,34 +691,26 @@ def is_inactive_moto_indicator(indicator: Indicator) -> bool:
 def involved_note(indicator: Indicator, index: int, frame: pd.DataFrame, values: dict[str, float]) -> str:
     last = frame.iloc[-1]
     key = indicator.key
+    if key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return "Paiement recu"
     if key in INACTIVE_MOTO_INDICATORS:
         return f"{max(1, round(values.get('temps_inactivite', last['total_motos'] - last['motos_actives'])))} j inactif"
     if key == "taux_pannes":
         return "Panne signalee"
-    if key in {"motos_actives_jour", "courses_jour", "moyenne_courses"}:
-        return "Moto active"
-    if key in {"retardataires_j1", "nb_beneficiaires_retard", "retard_moyen", "hebdo_nb_retards"}:
-        return "Paiement en retard"
-    if key in {"taux_paiement_temps", "taux_remboursement", "taux_remboursement_jour", "hebdo_remboursement"}:
+    if key in {"taux_paiement_temps", "hebdo_performance"}:
         return "Paiement attendu non regularise"
     if key in {"par7", "hebdo_par7"}:
         return "Encours en retard > 7 j"
-    if key == "par30":
-        return "Encours en retard > 30 j"
-    if key in {"taux_defaut", "cas_defaut", "recovery_apres_defaut", "motos_recuperees"}:
+    if key in {"taux_defaut"}:
         return "Cas de defaut"
     if key in {"paiements_digitaux_jour", "taux_digitalisation", "autres_moyens_paiement"}:
         return "Paiement non digital"
-    if key in {"taux_visites", "visites_terrain_jour", "visites_par_benef", "motos_visitees", "hebdo_visites"}:
-        return "Visite terrain a suivre"
-    if key in {"incidents_jour", "taux_resolution", "delai_reaction"}:
-        return "Incident terrain"
     if key in {"flop_beneficiaires", "score_discipline"}:
         return "Score discipline faible"
     return indicator.name
 
 
-def alert_cause_rows(indicator: Indicator, frame: pd.DataFrame, values: dict[str, float]) -> list[dict[str, str]]:
+def alert_cause_rows(indicator: Indicator, frame: pd.DataFrame, previous_frame: pd.DataFrame, values: dict[str, float]) -> list[dict[str, str]]:
     if frame.empty:
         return []
     last = frame.iloc[-1]
@@ -794,15 +719,18 @@ def alert_cause_rows(indicator: Indicator, frame: pd.DataFrame, values: dict[str
         sums = frame.sum(numeric_only=True).to_dict()
         base_score = max(0, (safe_ratio(sums.get("paiements_temps", 0), sums.get("paiements_attendus", 1)) * 100 * 0.4) + (safe_ratio(sums.get("montant_total_rembourse", 0), sums.get("montant_total_attendu", 1)) * 100 * 0.2) + (safe_ratio(sums.get("jours_actifs", 0), sums.get("jours_totaux", 1)) * 100 * 0.2) - (safe_ratio(sums.get("beneficiaires_retard", 0), sums.get("paiements_attendus", 1)) * 100 * 0.2))
         rows = []
+        prev_sums = previous_frame.sum(numeric_only=True).to_dict() if not previous_frame.empty else {}
+        prev_base_score = max(0, (safe_ratio(prev_sums.get("paiements_temps", 0), prev_sums.get("paiements_attendus", 1)) * 100 * 0.4) + (safe_ratio(prev_sums.get("montant_total_rembourse", 0), prev_sums.get("montant_total_attendu", 1)) * 100 * 0.2) + (safe_ratio(prev_sums.get("jours_actifs", 0), prev_sums.get("jours_totaux", 1)) * 100 * 0.2) - (safe_ratio(prev_sums.get("beneficiaires_retard", 0), prev_sums.get("paiements_attendus", 1)) * 100 * 0.2)) if prev_sums else 0
+        
         for i, nom in enumerate(MOCK_NAMES):
             score = max(0, min(100, base_score + (stable_offset(nom) % 40) - 20))
+            score_prec = max(0, min(100, prev_base_score + (stable_offset(nom) % 40) - 20)) if prev_sums else 0
             rows.append({
-                "indicateur": indicator.name,
-                "code": f"BEN-{2000 + i}",
                 "nom": nom,
                 "telephone": f"+237 6{70 + (i % 20):02d} {110 + i:03d} {220 + i:03d}",
                 "moto": f"MOTO-{1000 + i}",
-                "note": f"{score:.1f}%"
+                "score_discipline": f"{score:.1f}%",
+                "score_discipline_prec": f"{score_prec:.1f}%",
             })
         rows.sort(key=lambda x: x["nom"])
         return rows
@@ -815,25 +743,20 @@ def alert_cause_rows(indicator: Indicator, frame: pd.DataFrame, values: dict[str
         phone = f"+237 6{70 + (index % 20):02d} {110 + index:03d} {220 + index:03d}"
         name = mock_beneficiary_name(index, indicator.key)
         note = involved_note(indicator, index, frame, values)
-        if category == "Moto":
-            code = f"MOTO-{1000 + index + 1}"
-            moto = code
-        elif category == "Incident":
-            code = f"INC-{last['date'].strftime('%d%m')}-{index + 1:02d}"
-            moto = f"MOTO-{1000 + index + 1}"
+        moto = f"MOTO-{1000 + index + 1}"
+        r = {
+            "nom": name,
+            "telephone": phone,
+            "moto": moto,
+        }
+        
+        if is_inactive_moto_indicator(indicator):
+            r["taux_inactivite"] = note
+            r["taux_inactivite_prec"] = involved_note(indicator, index, previous_frame, compute_metrics(previous_frame, "weekly")) if not previous_frame.empty else "N/A"
         else:
-            code = f"BEN-{2000 + index + 1}"
-            moto = f"MOTO-{1000 + index + 1}"
-        rows.append(
-            {
-                "indicateur": indicator.name,
-                "code": code,
-                "nom": name,
-                "telephone": phone,
-                "moto": moto,
-                "note": note,
-            }
-        )
+            r["note"] = note
+            
+        rows.append(r)
     return rows
 
 
@@ -863,37 +786,22 @@ def fast_indicator_value(indicator: Indicator, frame: pd.DataFrame, mode: str) -
         return 0
     key = indicator.key
     sums = frame.sum(numeric_only=True).to_dict()
-    avgs = frame.mean(numeric_only=True).to_dict()
     first = frame.iloc[0].to_dict()
     last = frame.iloc[-1].to_dict()
     days = max(len(frame), 1)
 
-    if key == "motos_actives_jour":
-        return last["motos_actives"]
-    if key == "motos_inactives_jour":
-        return max(last["total_motos"] - last["motos_actives"], 0)
-    if key == "courses_jour":
-        return sums["courses"]
-    if key in {"taux_motos_actives", "taux_moyen_activite", "hebdo_motos_actives"}:
-        return safe_ratio(avgs["motos_actives"], avgs["total_motos"]) * 100
-    if key == "taux_utilisation":
-        return safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100
-    if key == "moyenne_courses":
-        return safe_ratio(sums["courses"], days)
+    if key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return safe_ratio(sums["total_collecte"], sums["montant_total_attendu"]) * 100
+    if key in {"taux_motos_actives", "hebdo_motos_actives"}:
+        return safe_ratio(sums["motos_actives"], sums["total_motos"]) * 100
     if key == "temps_inactivite":
         return round(safe_ratio(sums["jours_sans_activite"], days))
     if key == "taux_pannes":
-        return safe_ratio(avgs["motos_panne"], avgs["total_motos"]) * 100
-    if key == "performance_reseau":
-        return max(
-            0,
-            (
-                safe_ratio(avgs["motos_actives"], avgs["total_motos"]) * 100
-                + safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100
-                + (100 - safe_ratio(avgs["motos_panne"], avgs["total_motos"]) * 100)
-            )
-            / 3,
-        )
+        # moto ne travaille pas = panne OU moto-man inactif
+        motos_non_op = sums.get("motos_panne", 0) + max(sums.get("total_motos", 0) - sums.get("motos_actives", 0), 0)
+        return safe_ratio(motos_non_op, sums["total_motos"] * days) * 100 if days > 0 else safe_ratio(sums.get("motos_panne", 0), sums["total_motos"]) * 100
+    if key == "emplois_crees":
+        return last["emplois_directs"] + last["emplois_indirects"]
     if key == "score_discipline":
         return max(0, (safe_ratio(sums["paiements_temps"], sums["paiements_attendus"]) * 100 * 0.4) + (safe_ratio(sums["montant_total_rembourse"], sums["montant_total_attendu"]) * 100 * 0.2) + (safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100 * 0.2) - (safe_ratio(sums["beneficiaires_retard"], sums["paiements_attendus"]) * 100 * 0.2))
     if key == "top_beneficiaires":
@@ -915,7 +823,7 @@ def fast_indicator_value(indicator: Indicator, frame: pd.DataFrame, mode: str) -
         return safe_ratio(sums["revenus_estimes"], sums["nombre_beneficiaires"])
     if key == "taux_maintien":
         return safe_ratio(last["beneficiaires_actifs"], first["beneficiaires_initial"]) * 100
-    return compute_metrics(frame, mode)[key]
+    return compute_metrics(frame, mode).get(key, 0)
 
 
 def build_involved_trend_chart(indicator: Indicator, mode: str) -> go.Figure:
@@ -1075,6 +983,8 @@ def build_discipline_ranking_chart(frame: pd.DataFrame, is_top: bool) -> go.Figu
 
 
 def involved_visual_title(indicator: Indicator) -> str:
+    if indicator.key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return "Montants attendus vs recus"
     if is_inactive_moto_indicator(indicator):
         return "Top 20 des motos les plus inactives"
     if indicator.key == "top_beneficiaires":
@@ -1085,6 +995,8 @@ def involved_visual_title(indicator: Indicator) -> str:
 
 
 def involved_visual_description(indicator: Indicator) -> str:
+    if indicator.key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return "Comparaison des montants attendus et recus pour les 20 premiers beneficiaires de la liste."
     if is_inactive_moto_indicator(indicator):
         return "Classement des motos qui concentrent le plus d'inactivite sur la periode selectionnee."
     if indicator.key == "top_beneficiaires":
@@ -1094,7 +1006,9 @@ def involved_visual_description(indicator: Indicator) -> str:
     return "Evolution du nombre d'elements impliques dans l'alerte de cet indicateur."
 
 
-def build_involved_visual(indicator: Indicator, frame: pd.DataFrame, mode: str) -> go.Figure:
+def build_involved_visual(indicator: Indicator, frame: pd.DataFrame, previous_frame: pd.DataFrame, mode: str) -> go.Figure:
+    if indicator.key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return build_payment_amounts_chart(frame, previous_frame)
     if is_inactive_moto_indicator(indicator):
         return build_top_inactive_motos_chart(frame)
     if indicator.key == "top_beneficiaires":
@@ -1104,10 +1018,138 @@ def build_involved_visual(indicator: Indicator, frame: pd.DataFrame, mode: str) 
     return build_involved_trend_chart(indicator, mode)
 
 
-def alert_cause_table(indicator: Indicator, frame: pd.DataFrame, values: dict[str, float]) -> html.Div:
+def beneficiary_payment_rows(frame: pd.DataFrame, previous_frame: pd.DataFrame) -> list[dict[str, str]]:
+    if frame.empty:
+        return []
+    sums = frame.sum(numeric_only=True).to_dict()
+    last = frame.iloc[-1]
+    count = int(max(last.get("nombre_beneficiaires", 0), sums.get("paiements_attendus", 0), 0))
+    if count <= 0:
+        return []
+
+    expected_each = safe_ratio(sums.get("montant_total_attendu", 0), count)
+    raw = []
+    for index in range(count):
+        name = f"{mock_beneficiary_name(index, 'beneficiaire_paiement')} {index + 1:03d}"
+        factor = 0.82 + ((stable_offset(name) % 37) / 100)
+        raw.append(expected_each * factor)
+    raw_total = sum(raw)
+    scale = safe_ratio(sums.get("total_collecte", 0), raw_total)
+
+    rows = []
+    
+    prev_sums = previous_frame.sum(numeric_only=True).to_dict() if not previous_frame.empty else {}
+    prev_count = int(max(previous_frame.iloc[-1].get("nombre_beneficiaires", 0) if not previous_frame.empty else 0, prev_sums.get("paiements_attendus", 0), 0))
+    prev_expected_each = safe_ratio(prev_sums.get("montant_total_attendu", 0), prev_count) if prev_count > 0 else 0
+    prev_raw = [prev_expected_each * (0.82 + ((stable_offset(f"{mock_beneficiary_name(i, 'beneficiaire_paiement')} {i + 1:03d}") % 37) / 100)) for i in range(prev_count)]
+    prev_scale = safe_ratio(prev_sums.get("total_collecte", 0), sum(prev_raw)) if prev_raw else 0
+    
+    for index, raw_received in enumerate(raw):
+        montant_attendu_val = expected_each
+        montant_recu_val = max(0, raw_received * scale)
+        performance_val = safe_ratio(montant_recu_val, montant_attendu_val) * 100
+        
+        prev_perf_val = 0
+        if index < len(prev_raw):
+            prev_attendu = prev_expected_each
+            prev_recu = max(0, prev_raw[index] * prev_scale)
+            prev_perf_val = safe_ratio(prev_recu, prev_attendu) * 100
+
+        rows.append(
+            {
+                "nom": f"{mock_beneficiary_name(index, 'beneficiaire_paiement')} {index + 1:03d}",
+                "telephone": f"+237 6{70 + (index % 20):02d} {110 + index:03d} {220 + index:03d}",
+                "moto": f"MOTO-{1000 + index + 1}",
+                "performance": format_value(performance_val, "%"),
+                "performance_prec": format_value(prev_perf_val, "%"),
+                "raw_perf": performance_val,
+                "raw_perf_prec": prev_perf_val,
+            }
+        )
+    return rows
+
+
+def beneficiary_payment_table(frame: pd.DataFrame, previous_frame: pd.DataFrame) -> html.Div:
+    rows = beneficiary_payment_rows(frame, previous_frame)
+    if not rows:
+        return html.Div()
+
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.H3("Bénéficiaires défaillants"),
+                    html.P("Liste des bénéficiaires avec leur performance actuelle et celle de la période précédente."),
+                ],
+                className="chart-copy",
+            ),
+            html.Div(
+                html.Table(
+                    [
+                        html.Thead(
+                            html.Tr(
+                                [
+                                    html.Th("Nom beneficiaire"),
+                                    html.Th("Telephone"),
+                                    html.Th("Moto"),
+                                    html.Th("Performance (S)"),
+                                    html.Th("Performance (S-1)"),
+                                ]
+                            )
+                        ),
+                        html.Tbody(
+                            [
+                                html.Tr(
+                                    [
+                                        html.Td(row["nom"]),
+                                        html.Td(row["telephone"]),
+                                        html.Td(row["moto"]),
+                                        html.Td(row["performance"]),
+                                        html.Td(row["performance_prec"]),
+                                    ]
+                                )
+                                for row in rows
+                            ]
+                        ),
+                    ],
+                    className="cause-table",
+                ),
+                className="table-scroll",
+            ),
+        ],
+        id="involved-section",
+        className="chart-panel involved-panel",
+    )
+
+
+def build_payment_amounts_chart(frame: pd.DataFrame, previous_frame: pd.DataFrame) -> go.Figure:
+    rows = beneficiary_payment_rows(frame, previous_frame)[:20]
+    fig = go.Figure()
+    labels = [row["nom"] for row in rows]
+    current_perf = [row["raw_perf"] for row in rows]
+    prev_perf = [row["raw_perf_prec"] for row in rows]
+    fig.add_trace(go.Bar(name="Performance (S-1)", x=labels, y=prev_perf, marker_color="#94a3b8"))
+    fig.add_trace(go.Bar(name="Performance (S)", x=labels, y=current_perf, marker_color=ACCENT))
+    fig.update_layout(
+        height=420,
+        barmode="group",
+        margin={"l": 20, "r": 20, "t": 20, "b": 110},
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        legend={"orientation": "h", "y": 1.08, "x": 0},
+        font={"family": "Inter, Segoe UI, Arial, sans-serif", "color": "#111827"},
+    )
+    fig.update_yaxes(title="Performance (%)", gridcolor="#edf2f7", zerolinecolor="#dbe3ea", rangemode="tozero")
+    fig.update_xaxes(showgrid=False, tickangle=-45)
+    return fig
+
+
+def alert_cause_table(indicator: Indicator, frame: pd.DataFrame, previous_frame: pd.DataFrame, values: dict[str, float]) -> html.Div:
     if indicator.key in {"top_beneficiaires", "flop_beneficiaires"}:
         return html.Div()
-    rows = alert_cause_rows(indicator, frame, values)
+    if indicator.key in FINANCIAL_PERFORMANCE_INDICATORS:
+        return beneficiary_payment_table(frame, previous_frame)
+    rows = alert_cause_rows(indicator, frame, previous_frame, values)
     return involved_table_from_rows(rows, involved_title(indicator), involved_description(indicator))
 
 
@@ -1115,33 +1157,33 @@ def involved_table_from_rows(rows: list[dict[str, str]], title: str, description
     if not rows:
         return html.Div()
     
-    has_indicator = any("indicateur" in r for r in rows)
-    has_nom = any("nom" in r for r in rows)
-    has_note = any("note" in r for r in rows)
+    # We define the order of columns to display
+    ordered_keys = ["nom", "telephone", "moto", "taux_inactivite", "taux_inactivite_prec", "score_discipline", "score_discipline_prec", "note", "note_prec", "date_visite"]
     
-    headers = []
-    if has_indicator:
-        headers.append(html.Th("Indicateur"))
-    headers.append(html.Th("Code"))
-    if has_nom:
-        headers.append(html.Th("Nom"))
-    headers.append(html.Th("Telephone"))
-    headers.append(html.Th("Moto"))
-    if has_note:
-        headers.append(html.Th("Note"))
+    key_to_header = {
+        "nom": "Nom",
+        "telephone": "Téléphone",
+        "moto": "Moto",
+        "taux_inactivite": "Taux d'inactivité (S)",
+        "taux_inactivite_prec": "Taux d'inactivité (S-1)",
+        "score_discipline": "Score disciplinaire",
+        "score_discipline_prec": "Score disciplinaire précédent",
+        "note": "Note",
+        "note_prec": "Note précédente",
+        "date_visite": "Date de visite terrain"
+    }
+    
+    # Get all keys present in the rows
+    available_keys = []
+    for k in ordered_keys:
+        if any(k in r for r in rows):
+            available_keys.append(k)
+            
+    headers = [html.Th(key_to_header[k]) for k in available_keys]
         
     tbody_rows = []
     for r in rows:
-        tds = []
-        if has_indicator:
-            tds.append(html.Td(r.get("indicateur", "")))
-        tds.append(html.Td(r.get("code", "")))
-        if has_nom:
-            tds.append(html.Td(r.get("nom", "")))
-        tds.append(html.Td(r.get("telephone", "")))
-        tds.append(html.Td(r.get("moto", "")))
-        if has_note:
-            tds.append(html.Td(r.get("note", "")))
+        tds = [html.Td(r.get(k, "")) for k in available_keys]
         tbody_rows.append(html.Tr(tds))
 
     return html.Div(
@@ -1268,7 +1310,7 @@ def build_trend_chart(indicator: Indicator, mode: str) -> go.Figure:
 
 
 def home_block(group: str, values: dict[str, float]) -> html.Div:
-    indicators = [indicator for indicator in indicators_for_group(group) if indicator.frequency in {"monthly", "both"}]
+    indicators = [indicator for indicator in indicators_for_group(group) if "monthly" in indicator_modes(indicator)]
     if not indicators:
         indicators = indicators_for_group(group)
     states = [alert_for(indicator, values.get(indicator.key, 0))[0] for indicator in indicators]
@@ -1310,9 +1352,9 @@ def layout() -> html.Div:
                     html.Div(
                         [
                             dcc.Upload(id="data-upload", children=html.Button("Importer Excel", className="secondary-button"), accept=".xlsx", multiple=False),
-                            html.A("Modele Excel", href="/assets/modele_kpi_multifeuilles_mis_a_jour.xlsx", className="template-link"),
-                            html.Button("Mois precedent", id="previous-month-button", n_clicks=0, className="secondary-button"),
-                            html.Button("Accueil", id="home-button", n_clicks=0, className="secondary-button"),
+                            html.A("Modèle Excel", href="/assets/modele_kpi_multifeuilles_mis_a_jour.xlsx", className="template-link"),
+                            html.Button("Mois précédent", id="previous-month-button", n_clicks=0, className="secondary-button"),
+                            html.Button("Accueil", id="home-button", n_clicks=0, className="secondary-button", disabled=True),
                         ],
                         className="header-actions",
                     ),
@@ -1367,6 +1409,8 @@ app.layout = layout
     Output("selected-page", "data"),
     Output("group-filter", "value"),
     Output("requested-indicator", "data"),
+    Output("home-button", "disabled"),
+    Output("previous-month-button", "disabled"),
     Input("home-button", "n_clicks"),
     Input("previous-month-button", "n_clicks"),
     Input({"type": "group-button", "group": ALL}, "n_clicks"),
@@ -1379,28 +1423,37 @@ app.layout = layout
 )
 def navigate(home_clicks: int, previous_month_clicks: int, group_clicks: list[int], indicator_clicks: list[int], selected_page: str, current_group: str, selected_day: str, selected_week: str, selected_month: str):
     triggered = callback_context.triggered_id
+    
+    def page_button_states(page: str):
+        return page == "accueil", page == "previous-month"
+    
     if triggered == "home-button":
-        return "accueil", current_group, no_update
+        return "accueil", current_group, no_update, True, False
     if triggered == "previous-month-button":
-        return "previous-month", current_group, no_update
+        return "previous-month", current_group, no_update, False, True
     if isinstance(triggered, dict) and triggered.get("type") == "group-button":
         group = triggered["group"]
+        if group == "hebdo":
+            first_indicator = indicators_for_group(group)[0].key
+            return "hebdo-home", group, first_indicator, False, False
         if not selected_day or not selected_week or not selected_month:
             selected_month, selected_week, selected_day = default_periods()
         context = period_context(selected_day, selected_week, selected_month)
         alert_items, watch_items = grouped_indicators_by_alert(group, context)
         if alert_items:
             first_alert = source_indicator_key(alert_items[0].key)
-            return "dashboard", source_group_for_indicator(first_alert), first_alert
+            return "dashboard", source_group_for_indicator(first_alert), first_alert, False, False
         if watch_items:
             first_watch = source_indicator_key(watch_items[0].key)
-            return "dashboard", source_group_for_indicator(first_watch), first_watch
+            return "dashboard", source_group_for_indicator(first_watch), first_watch, False, False
         first_indicator = source_indicator_key(indicators_for_group(group)[0].key)
-        return "dashboard", group, first_indicator
+        return "dashboard", group, first_indicator, False, False
     if isinstance(triggered, dict) and triggered.get("type") == "indicator-button":
-        indicator_key = source_indicator_key(triggered["indicator"])
-        return "dashboard", source_group_for_indicator(indicator_key), indicator_key
-    return selected_page, current_group, no_update
+        indicator_key = triggered["indicator"]
+        real_key = source_indicator_key(indicator_key)
+        real_group = source_group_for_indicator(real_key)
+        return "dashboard", real_group, real_key, False, False
+    return selected_page, current_group, no_update, selected_page == "accueil", selected_page == "previous-month"
 
 
 @app.callback(
@@ -1519,6 +1572,7 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
     Output("month-filter", "disabled"),
     Output("filter-note", "children"),
     Output("sidebar", "className"),
+    Output("sidebar", "style"),
     Output("main-shell", "className"),
     Input("selected-page", "data"),
     Input("group-filter", "value"),
@@ -1532,7 +1586,7 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
 )
 def render_page(selected_page: str, group: str, indicator_key: str, selected_month: str, selected_week: str, selected_day: str, mode: str, refresh: int, requested_indicator: str | None):
     if not indicator_key or indicator_key not in INDICATOR_BY_KEY:
-        return no_update, no_update, no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
 
     if selected_page == "accueil":
         current, _, current_label, _ = filter_period(selected_day, selected_week, selected_month, "monthly")
@@ -1543,8 +1597,8 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                     html.Div(
                         [
                             html.Span("Accueil", className="eyebrow"),
-                            html.H2("Vue generale des indicateurs"),
-                            html.P(f"Etat general calcule sur le mois selectionne: {current_label}. Cliquez sur un bloc pour ouvrir son dashboard."),
+                            html.H2("Vue générale des indicateurs"),
+                            html.P(f"État général calculé sur le mois sélectionné: {current_label}. Cliquez sur un bloc pour ouvrir son dashboard."),
                         ],
                         className="section-title home-title",
                     ),
@@ -1555,8 +1609,9 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
             True,
             True,
             False,
-            "Accueil: le mois reste actif pour calculer l'etat general des blocs.",
+            "Accueil: le mois reste actif pour calculer l'état général des blocs.",
             "sidebar is-hidden",
+            {},
             "shell home-shell",
         )
 
@@ -1590,9 +1645,9 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                 [
                     html.Div(
                         [
-                            html.Span("Mois precedent", className="eyebrow"),
+                            html.Span("Mois précédent", className="eyebrow"),
                             html.H2(f"Indicateurs mensuels - {previous_month.strftime('%m/%Y')}"),
-                            html.P("Cette page affiche uniquement les indicateurs mensuels du mois precedent par bloc KPI."),
+                            html.P("Cette page affiche uniquement les indicateurs mensuels du mois précédent par bloc KPI."),
                         ],
                         className="section-title home-title",
                     ),
@@ -1603,8 +1658,9 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
             True,
             True,
             False,
-            "Mois precedent: seuls les indicateurs mensuels sont affiches.",
+            "Mois précédent: seuls les indicateurs mensuels sont affichés.",
             "sidebar is-hidden",
+            {},
             "shell home-shell",
         )
 
@@ -1618,7 +1674,7 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                         [
                             html.Span("KPI Hebdo", className="eyebrow"),
                             html.H2("Accueil KPI Hebdo"),
-                            html.P(f"Indicateurs indispensables de la semaine selectionnee: {current_label}. Cliquez sur un indicateur pour ouvrir son dashboard."),
+                            html.P(f"Indicateurs indispensables de la semaine sélectionnée: {current_label}. Cliquez sur un indicateur pour ouvrir son dashboard."),
                         ],
                         className="section-title home-title",
                     ),
@@ -1627,14 +1683,18 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                 className="home-panel",
             ),
             True,
-            False,
             True,
-            "KPI Hebdo: accueil des indicateurs hebdomadaires.",
+            True,
+            "KPI Hebdo: accueil des indicateurs hebdomadaires. Revenez à l'accueil pour changer la date.",
             "sidebar is-hidden",
+            {},
             "shell home-shell",
         )
 
     if selected_page == "group-overview":
+        group = HIDDEN_GROUP_REMAP.get(group, group)
+        if group not in GROUPS:
+            group = "financier"
         context = period_context(selected_day, selected_week, selected_month)
         alert_items, watch_items = grouped_indicators_by_alert(group, context)
         if not alert_items:
@@ -1643,93 +1703,69 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
             involved_rows = []
             for alert_indicator in alert_items:
                 alert_mode = default_mode_for_indicator(alert_indicator)
-                involved_rows.extend(alert_cause_rows(alert_indicator, context[alert_mode]["current"], context[alert_mode]["values"]))
+                involved_rows.extend(alert_cause_rows(alert_indicator, context[alert_mode]["current"], context[alert_mode]["previous"], context[alert_mode]["values"]))
             return (
                 html.Section(
                     [
                         html.Div(
                             [
                                 html.Span(GROUPS[group], className="eyebrow"),
-                                html.H2(f"Synthese {GROUPS[group]}"),
-                                html.P("Cliquez sur une carte rouge pour ouvrir l'interface de l'indicateur et filtrer les beneficiaires ou motos impliques."),
+                                html.H2(f"Synthèse {GROUPS[group]}"),
+                                html.P("Cliquez sur une carte rouge pour ouvrir l'interface de l'indicateur et filtrer les bénéficiaires ou motos impliqués."),
                             ],
                             className="section-title home-title",
                         ),
                         indicator_section(
-                            "Indicateurs qui génère l'alerte",
-                            "Ces indicateurs sont en rouge et demandent une action immediate.",
+                            "Indicateurs qui génèrent l'alerte",
+                            "Ces indicateurs sont en rouge et demandent une action immédiate.",
                             alert_items,
                             context,
                             "Aucune alerte",
                         ),
                         indicator_section(
-                            "Indicateurs a suivre",
-                            "Ces indicateurs sont en surveillance et doivent etre controles.",
+                            "Indicateurs à suivre",
+                            "Ces indicateurs sont en surveillance et doivent être contrôlés.",
                             watch_items,
                             context,
-                            "Aucun indicateur a suivre",
+                            "Aucun indicateur à suivre",
                         ),
-                        involved_table_from_rows(involved_rows, "Beneficiaires impliques", "Beneficiaires et motos filtres par les indicateurs en alerte."),
+                        involved_table_from_rows(involved_rows, "Bénéficiaires impliqués", "Bénéficiaires et motos filtrés par les indicateurs en alerte."),
                     ],
                     className="home-panel",
                 ),
                 True,
                 True,
                 True,
-                "Synthese KPI en alerte: cliquez sur une carte rouge pour ouvrir le dashboard detaille.",
+                "Synthèse KPI en alerte: cliquez sur une carte rouge pour ouvrir le dashboard détaillé.",
                 "sidebar is-hidden",
+                {},
                 "shell home-shell",
             )
-    if selected_page == "group-overview":
-        return (
-            html.Section(
-                [
-                    html.Div(
-                        [
-                            html.Span(GROUPS[group], className="eyebrow"),
-                            html.H2(f"Synthese {GROUPS[group]}"),
-                            html.P("Cliquez sur une carte pour ouvrir l'interface de l'indicateur et filtrer les beneficiaires ou motos impliques."),
-                        ],
-                        className="section-title home-title",
-                    ),
-                    indicator_section(
-                        "Indicateurs qui génère l'alerte",
-                        "Ces indicateurs sont en rouge et demandent une action immediate.",
-                        alert_items,
-                        context,
-                        "Aucune alerte",
-                    ),
-                    indicator_section(
-                        "Indicateurs a suivre",
-                        "Ces indicateurs sont en surveillance et doivent etre controles.",
-                        watch_items,
-                        context,
-                        "Aucun indicateur a suivre",
-                    ),
-                ],
-                className="home-panel",
-            ),
-            True,
-            True,
-            True,
-            "Synthese KPI: cliquez sur une carte pour ouvrir le dashboard detaille.",
-            "sidebar is-hidden",
-            "shell home-shell",
-        )
 
-    if INDICATOR_BY_KEY[indicator_key].group != group:
+    # Resolve any hebdo alias to its real key before rendering the dashboard
+    indicator_key = source_indicator_key(indicator_key)
+
+    # Determine display group (visible in GROUPS)
+    if indicator_key in INDICATOR_BY_KEY:
+        real_group = INDICATOR_BY_KEY[indicator_key].group
+        group = HIDDEN_GROUP_REMAP.get(real_group, real_group)
+        if group not in GROUPS:
+            group = "financier"
+    else:
+        group = HIDDEN_GROUP_REMAP.get(group, group)
+        if group not in GROUPS:
+            group = "financier"
         indicator_key = indicators_for_group(group)[0].key
 
-    mode_options = group_frequency_options(group)
-    allowed_modes = {option["value"] for option in mode_options}
-    mode = mode if mode in allowed_modes else mode_options[0]["value"]
+    if indicator_key not in INDICATOR_BY_KEY:
+        indicator_key = indicators_for_group(group)[0].key
 
-    compatible_indicators = indicators_for_group(group, mode)
-    if not compatible_indicators:
-        compatible_indicators = indicators_for_group(group)
-    compatible_keys = {indicator.key for indicator in compatible_indicators}
-    if indicator_key not in compatible_keys:
-        indicator_key = compatible_indicators[0].key
+    indicator = INDICATOR_BY_KEY[indicator_key]
+
+    # Mode based on the indicator itself
+    mode_options_for_ind = frequency_options(indicator)
+    allowed_modes = {opt["value"] for opt in mode_options_for_ind}
+    mode = mode if mode in allowed_modes else mode_options_for_ind[0]["value"]
 
     indicator = INDICATOR_BY_KEY[indicator_key]
     current, previous, current_label, previous_label = filter_period(selected_day, selected_week, selected_month, mode)
@@ -1742,10 +1778,10 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
     delta_text, delta_color = delta_status(indicator, delta)
 
     frequency_label = {"monthly": "Mensuel", "weekly": "Hebdomadaire", "daily": "Quotidien"}[mode]
-    disabled_day = mode != "daily"
-    disabled_week = mode != "weekly"
-    disabled_month = mode != "monthly"
-    note = f"Mode {frequency_label}: le filtre compatible est actif; les autres sont desactives."
+    disabled_day = True
+    disabled_week = True
+    disabled_month = True
+    note = f"Mode {frequency_label}: l'indicateur est affiché. Revenez à l'accueil pour changer la date."
 
     selected_indicator_card = selected_value_card(indicator, value)
     context = period_context(selected_day, selected_week, selected_month)
@@ -1755,12 +1791,12 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
         related_items = [alert_item for alert_item in alert_items if source_indicator_key(alert_item.key) != indicator.key]
         side_label = "Alerte"
         side_title = "Autres indicateurs en alerte"
-        side_description = "Cliquez sur une carte rouge pour ouvrir son indicateur et descendre directement aux impliques."
+        side_description = "Cliquez sur une carte rouge pour ouvrir son indicateur et descendre directement aux impliqués."
     elif current_state == "watch":
         related_items = [watch_item for watch_item in watch_items if source_indicator_key(watch_item.key) != indicator.key]
         side_label = "Surveillance"
-        side_title = "Autres indicateurs a surveiller"
-        side_description = "Cliquez sur une carte jaune pour ouvrir son indicateur et descendre directement aux impliques."
+        side_title = "Autres indicateurs à surveiller"
+        side_description = "Cliquez sur une carte jaune pour ouvrir son indicateur et descendre directement aux impliqués."
     else:
         related_items = []
         side_label = ""
@@ -1796,7 +1832,7 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                             [
                                 html.Span(GROUPS[group], className="eyebrow"),
                                 html.H2(f"Dashboard {GROUPS[group]}"),
-                                html.P("La premiere carte affiche la valeur, la carte suivante affiche uniquement l'ecart."),
+                                html.P("La première carte affiche la valeur, la carte suivante affiche uniquement l'écart."),
                             ],
                             className="section-title",
                         ),
@@ -1821,7 +1857,7 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                         html.Div(
                             [
                                 html.Div([html.Span("Indicateur"), html.Strong(indicator.name)]),
-                                html.Div([html.Span("Frequence"), html.Strong(frequency_label)]),
+                                html.Div([html.Span("Fréquence"), html.Strong(frequency_label)]),
                                 html.Div([html.Span("Sens attendu"), html.Strong("Hausse" if indicator.higher_is_better else "Baisse")]),
                             ],
                             className="summary-details",
@@ -1831,22 +1867,29 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                 ),
                 html.Div(
                     [
-                        html.Div([html.H3("Comparaison"), html.P("Mois M vs M-1, semaine choisie vs semaine precedente, ou jour vs J-1.")], className="chart-copy"),
+                        html.Div([
+                            html.H3("Comparaison" if mode != "daily" else "Performance J vs J-1"),
+                            html.P({
+                                "daily": f"Performance du jour {current_label} comparée au jour précédent {previous_label}.",
+                                "weekly": f"Semaine {current_label} vs semaine précédente {previous_label}.",
+                                "monthly": f"Mois {current_label} vs mois précédent {previous_label}.",
+                            }.get(mode, "Comparaison de la période sélectionnée vs la période précédente."))
+                        ], className="chart-copy"),
                         dcc.Graph(figure=build_comparison_chart(indicator, value, previous_value, current_label, previous_label), config={"displayModeBar": False}),
                     ],
                     className="chart-panel",
                 ),
-                alert_cause_table(indicator, current, values),
+                alert_cause_table(indicator, current, previous, values),
                 html.Div(
                     [
                         html.Div([html.H3(involved_visual_title(indicator)), html.P(involved_visual_description(indicator))], className="chart-copy"),
-                        dcc.Graph(figure=build_involved_visual(indicator, current, mode), config={"displayModeBar": False}),
+                        dcc.Graph(figure=build_involved_visual(indicator, current, previous, mode), config={"displayModeBar": False}),
                     ],
                     className="chart-panel",
-                ),
+                ) if indicator.key not in {"visites_terrain_jour", "taux_visites", "hebdo_visites", "motos_visitees"} else None,
                 html.Div(
                     [
-                        html.Div([html.H3("Tendance"), html.P("Evolution historique de l'indicateur selectionne.")], className="chart-copy"),
+                        html.Div([html.H3("Tendance"), html.P("Évolution historique de l'indicateur sélectionné.")], className="chart-copy"),
                         dcc.Graph(figure=build_trend_chart(indicator, mode), config={"displayModeBar": False}),
                     ],
                     className="chart-panel",
@@ -1858,6 +1901,7 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
         disabled_month,
         note,
         "sidebar",
+        {},
         "shell",
     )
 
@@ -1882,6 +1926,7 @@ app.index_string = """
             .app-header { min-height: 88px; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; gap: 18px; background: white; border-bottom: 1px solid var(--line); }
             .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
             .secondary-button, .open-button { border: 0; border-radius: 7px; background: #17663a; color: white; font-weight: 850; min-height: 40px; padding: 0 15px; cursor: pointer; }
+            .secondary-button:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
             .open-button { background: #0f766e; margin-top: 14px; }
             .template-link { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: #0f766e; font-size: 13px; font-weight: 850; padding: 0 12px; text-decoration: none; }
             .shell { max-width: 1480px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 22px; align-items: start; }
@@ -1890,6 +1935,7 @@ app.index_string = """
             .upload-status { color: #0f766e; font-size: 13px; font-weight: 800; }
             .sidebar { position: sticky; top: 18px; background: white; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 16px; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06); }
             .sidebar.is-hidden { display: none; }
+            .is-disabled { pointer-events: none; opacity: 0.5; }
             .sidebar-title { display: grid; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
             .eyebrow { color: #0f766e; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0; }
             .filter-field { display: grid; gap: 7px; }
@@ -1935,6 +1981,8 @@ app.index_string = """
             .chart-panel { padding: 18px; margin-bottom: 20px; }
             .involved-panel { scroll-margin-top: 24px; }
             .chart-copy { display: grid; gap: 6px; margin-bottom: 8px; }
+            .table-scroll { max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+            .table-scroll .cause-table th { position: sticky; top: 0; z-index: 1; }
             .cause-table { width: 100%; border-collapse: collapse; font-size: 13px; }
             .cause-table th, .cause-table td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); }
             .cause-table th { color: #334155; background: #f8fafc; font-weight: 850; }
