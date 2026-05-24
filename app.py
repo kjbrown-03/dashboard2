@@ -80,7 +80,7 @@ INDICATORS = [
     Indicator("revenus_fintech", "Revenu de commission", "fintech", "Somme des commissions sur transactions", "monthly", "FCFA", True),
     Indicator("nb_utilisateurs_actifs", "Nombre d'utilisateurs actifs", "fintech", "Utilisateurs ayant realise au moins une transaction", "monthly", "", True),
     Indicator("freq_utilisation", "Frequence d'utilisation par beneficiaire", "fintech", "Transactions / Nombre de beneficiaires", "monthly", "", True),
-    Indicator("score_discipline", "Score discipline moyen", "discipline", "(Paiement x 40%) + (Régularité x 20%) + (Activité x 20%) - (Retard x 20%)", "both", "%", True, 90, 70),
+    Indicator("score_discipline", "Score discipline moyen", "discipline", "(Paiements a temps x 40%) + (Activite x 30%) + (Entretien x 20%), moyenne par moto", "both", "%", True, 90, 70),
     Indicator("top_beneficiaires", "Top 20 des plus disciplinés", "discipline", "Les 20 beneficiaires les plus disciplines", "both", "", True),
     Indicator("flop_beneficiaires", "Top 20 des plus indisciplinés", "discipline", "Les 20 beneficiaires les moins disciplines", "both", "", False, 5, 15),
     Indicator("hebdo_performance", "Performance hebdomadaire", "hebdo", "Repris du KPI financier", "weekly", "%", True, 95, 90),
@@ -108,6 +108,13 @@ FINANCIAL_PERFORMANCE_INDICATORS = {
     "performance_mensuelle",
     "hebdo_performance",
 }
+
+DISCIPLINE_WEIGHTS = {
+    "paiement_temps": 0.40,
+    "activite": 0.30,
+    "entretien": 0.20,
+}
+DISCIPLINE_WEIGHT_TOTAL = sum(DISCIPLINE_WEIGHTS.values())
 
 SOCIAL_INDICATORS_IMPLEMENTED = {
     "revenu_moyen_estime_hebdo",
@@ -177,6 +184,28 @@ def stable_offset(text: str) -> int:
 
 def mock_beneficiary_name(index: int, key: str = "") -> str:
     return MOCK_NAMES[(index + stable_offset(key)) % len(MOCK_NAMES)]
+
+
+def clamp_percent(value: float) -> float:
+    return max(0, min(100, value))
+
+
+def discipline_components_from_sums(sums: dict[str, float]) -> dict[str, float]:
+    paiement_temps = safe_ratio(sums.get("paiements_temps", 0), sums.get("paiements_attendus", 0)) * 100
+    activite = safe_ratio(sums.get("jours_actifs", 0), sums.get("jours_totaux", 0)) * 100
+    panne_rate = safe_ratio(sums.get("motos_panne", 0), sums.get("total_motos", 0))
+    entretien = (1 - panne_rate) * 100
+    return {
+        "paiement_temps": clamp_percent(paiement_temps),
+        "activite": clamp_percent(activite),
+        "entretien": clamp_percent(entretien),
+    }
+
+
+def discipline_score_from_sums(sums: dict[str, float]) -> float:
+    components = discipline_components_from_sums(sums)
+    weighted_score = sum(components[key] * weight for key, weight in DISCIPLINE_WEIGHTS.items())
+    return safe_ratio(weighted_score, DISCIPLINE_WEIGHT_TOTAL)
 
 
 def make_sample_data() -> pd.DataFrame:
@@ -394,7 +423,7 @@ def compute_metrics(frame: pd.DataFrame, mode: str) -> dict[str, float]:
         "nb_utilisateurs_actifs": last["utilisateurs_actifs"],
         "freq_utilisation": safe_ratio(sums["transactions"], last["nombre_beneficiaires"]),
 
-        "score_discipline": max(0, (safe_ratio(sums["paiements_temps"], sums["paiements_attendus"]) * 100 * 0.4) + (safe_ratio(sums["montant_total_rembourse"], sums["montant_total_attendu"]) * 100 * 0.2) + (safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100 * 0.2) - (safe_ratio(sums["beneficiaires_retard"], sums["paiements_attendus"]) * 100 * 0.2)),
+        "score_discipline": discipline_score_from_sums(sums),
         "top_beneficiaires": last["top_beneficiaires"],
         "flop_beneficiaires": last["flop_beneficiaires"],
         "taux_croissance": (safe_ratio(last["beneficiaires_finances"], first["beneficiaires_finances"]) - 1) * 100,
@@ -717,18 +746,31 @@ def alert_cause_rows(indicator: Indicator, frame: pd.DataFrame, previous_frame: 
     
     if indicator.key == "score_discipline":
         sums = frame.sum(numeric_only=True).to_dict()
-        base_score = max(0, (safe_ratio(sums.get("paiements_temps", 0), sums.get("paiements_attendus", 1)) * 100 * 0.4) + (safe_ratio(sums.get("montant_total_rembourse", 0), sums.get("montant_total_attendu", 1)) * 100 * 0.2) + (safe_ratio(sums.get("jours_actifs", 0), sums.get("jours_totaux", 1)) * 100 * 0.2) - (safe_ratio(sums.get("beneficiaires_retard", 0), sums.get("paiements_attendus", 1)) * 100 * 0.2))
+        base_components = discipline_components_from_sums(sums)
         rows = []
         prev_sums = previous_frame.sum(numeric_only=True).to_dict() if not previous_frame.empty else {}
-        prev_base_score = max(0, (safe_ratio(prev_sums.get("paiements_temps", 0), prev_sums.get("paiements_attendus", 1)) * 100 * 0.4) + (safe_ratio(prev_sums.get("montant_total_rembourse", 0), prev_sums.get("montant_total_attendu", 1)) * 100 * 0.2) + (safe_ratio(prev_sums.get("jours_actifs", 0), prev_sums.get("jours_totaux", 1)) * 100 * 0.2) - (safe_ratio(prev_sums.get("beneficiaires_retard", 0), prev_sums.get("paiements_attendus", 1)) * 100 * 0.2)) if prev_sums else 0
+        prev_base_score = discipline_score_from_sums(prev_sums) if prev_sums else 0
         
         for i, nom in enumerate(MOCK_NAMES):
-            score = max(0, min(100, base_score + (stable_offset(nom) % 40) - 20))
+            moto = f"MOTO-{1000 + i}"
+            offset = (stable_offset(f"{nom}-{moto}") % 31) - 15
+            paiement_temps = clamp_percent(base_components["paiement_temps"] + offset * 0.7)
+            activite = clamp_percent(base_components["activite"] + offset * 0.9)
+            entretien = clamp_percent(base_components["entretien"] + offset * 0.5)
+            score = safe_ratio(
+                paiement_temps * DISCIPLINE_WEIGHTS["paiement_temps"]
+                + activite * DISCIPLINE_WEIGHTS["activite"]
+                + entretien * DISCIPLINE_WEIGHTS["entretien"],
+                DISCIPLINE_WEIGHT_TOTAL,
+            )
             score_prec = max(0, min(100, prev_base_score + (stable_offset(nom) % 40) - 20)) if prev_sums else 0
             rows.append({
                 "nom": nom,
                 "telephone": f"+237 6{70 + (i % 20):02d} {110 + i:03d} {220 + i:03d}",
-                "moto": f"MOTO-{1000 + i}",
+                "moto": moto,
+                "paiement_temps": f"{paiement_temps:.1f}%",
+                "activite": f"{activite:.1f}%",
+                "entretien": f"{entretien:.1f}%",
                 "score_discipline": f"{score:.1f}%",
                 "score_discipline_prec": f"{score_prec:.1f}%",
             })
@@ -803,7 +845,7 @@ def fast_indicator_value(indicator: Indicator, frame: pd.DataFrame, mode: str) -
     if key == "emplois_crees":
         return last["emplois_directs"] + last["emplois_indirects"]
     if key == "score_discipline":
-        return max(0, (safe_ratio(sums["paiements_temps"], sums["paiements_attendus"]) * 100 * 0.4) + (safe_ratio(sums["montant_total_rembourse"], sums["montant_total_attendu"]) * 100 * 0.2) + (safe_ratio(sums["jours_actifs"], sums["jours_totaux"]) * 100 * 0.2) - (safe_ratio(sums["beneficiaires_retard"], sums["paiements_attendus"]) * 100 * 0.2))
+        return discipline_score_from_sums(sums)
     if key == "top_beneficiaires":
         return last["top_beneficiaires"]
     if key == "flop_beneficiaires":
@@ -934,7 +976,7 @@ def discipline_ranking(frame: pd.DataFrame, is_top: bool) -> pd.DataFrame:
         return pd.DataFrame(columns=["beneficiaire", "value", "nom"])
     
     sums = frame.sum(numeric_only=True).to_dict()
-    base_score = max(0, (safe_ratio(sums.get("paiements_temps", 0), sums.get("paiements_attendus", 1)) * 100 * 0.4) + (safe_ratio(sums.get("montant_total_rembourse", 0), sums.get("montant_total_attendu", 1)) * 100 * 0.2) + (safe_ratio(sums.get("jours_actifs", 0), sums.get("jours_totaux", 1)) * 100 * 0.2) - (safe_ratio(sums.get("beneficiaires_retard", 0), sums.get("paiements_attendus", 1)) * 100 * 0.2))
+    base_score = discipline_score_from_sums(sums)
     
     top_n = 20
     names = MOCK_NAMES[:top_n]
@@ -1158,12 +1200,15 @@ def involved_table_from_rows(rows: list[dict[str, str]], title: str, description
         return html.Div()
     
     # We define the order of columns to display
-    ordered_keys = ["nom", "telephone", "moto", "taux_inactivite", "taux_inactivite_prec", "score_discipline", "score_discipline_prec", "note", "note_prec", "date_visite"]
+    ordered_keys = ["nom", "telephone", "moto", "paiement_temps", "activite", "entretien", "taux_inactivite", "taux_inactivite_prec", "score_discipline", "score_discipline_prec", "note", "note_prec", "date_visite"]
     
     key_to_header = {
         "nom": "Nom",
         "telephone": "Téléphone",
         "moto": "Moto",
+        "paiement_temps": "Paiements a temps",
+        "activite": "Activite",
+        "entretien": "Entretien",
         "taux_inactivite": "Taux d'inactivité (S)",
         "taux_inactivite_prec": "Taux d'inactivité (S-1)",
         "score_discipline": "Score disciplinaire",

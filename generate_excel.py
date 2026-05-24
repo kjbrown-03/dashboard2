@@ -72,7 +72,12 @@ def generate_excel(file_path, is_mock=False):
     # --- DISCIPLINE ---
     df_disc = pd.DataFrame({
         "date": dates,
-        "score_discipline": mock_data(85, 5)
+        "paiements_temps": mock_data(45, 5, True),
+        "paiements_attendus": mock_data(50, 0, True),
+        "jours_actifs": mock_data(45, 5, True),
+        "jours_totaux": mock_data(50, 0, True),
+        "motos_panne": mock_data(1, 1, True),
+        "total_motos": mock_data(50, 0, True),
     })
     
     # --- KPI HEBDO ---
@@ -139,7 +144,9 @@ def generate_excel(file_path, is_mock=False):
         "Fintech": [
             ("Taux digitalisation (%)", '=IF(C{row}=0, 0, B{row}/C{row})', formula_format),
         ],
-        "Discipline": [],
+        "Discipline": [
+            ("Score discipline (%)", '=IF(OR(C{row}=0,E{row}=0,G{row}=0),0,((B{row}/C{row})*0.4+(D{row}/E{row})*0.3+(1-F{row}/G{row})*0.2)/0.9)', formula_format),
+        ],
         "KPI Hebdo": [],
         "Bénéficiaires": []
     }
