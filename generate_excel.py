@@ -306,6 +306,54 @@ def generate_excel(file_path, is_mock=False):
 
     write_hebdo(ws_hb)
 
+    # RAPPORT MOTOS: une ligne par moto et par date pour alimenter le KPI rapport.
+    ws_rm = writer.book.add_worksheet("Rapport Motos")
+    writer.sheets["Rapport Motos"] = ws_rm
+    report_headers = [
+        ("date", 14),
+        ("moto_id", 18),
+        ("versement_attendu", 22),
+        ("versement_recu", 22),
+    ]
+    ws_rm.merge_range(0, 0, 0, len(report_headers) - 1, "RAPPORT MOTOS - Versements par moto", title_fmt)
+    ws_rm.set_row(0, 22)
+    ws_rm.merge_range(
+        1,
+        0,
+        1,
+        len(report_headers) - 1,
+        "Une ligne par moto et par date. Exemple moto_id: MOTO-1002.",
+        note_fmt,
+    )
+    ws_rm.set_row(1, 30)
+    for c, (header, width) in enumerate(report_headers):
+        ws_rm.write(2, c, header, header_input)
+        ws_rm.set_column(c, c, width)
+
+    report_rows = []
+    if is_mock:
+        motos = [f"MOTO-{1001 + i}" for i in range(20)]
+        for date_idx, dt in enumerate(dates):
+            for moto_idx, moto in enumerate(motos):
+                expected = max(0, 24500 + (moto_idx % 6) * 850 + np.random.normal(0, 1200))
+                rate = np.clip(0.88 + ((date_idx + moto_idx) % 9) / 100 + np.random.normal(0, 0.035), 0.68, 1.05)
+                report_rows.append((dt, moto, expected, expected * rate))
+    else:
+        for dt in dates:
+            report_rows.append((dt, "", None, None))
+
+    for r, (dt, moto, expected, received) in enumerate(report_rows, start=3):
+        ws_rm.write_datetime(r, 0, dt.to_pydatetime(), input_date)
+        ws_rm.write(r, 1, moto, input_fmt)
+        if expected is None:
+            ws_rm.write_blank(r, 2, None, input_fmt)
+        else:
+            ws_rm.write_number(r, 2, float(expected), input_fmt)
+        if received is None:
+            ws_rm.write_blank(r, 3, None, input_fmt)
+        else:
+            ws_rm.write_number(r, 3, float(received), input_fmt)
+
     # ══════════════════════════════════════════════════════════════════════════
     # BÉNÉFICIAIRES
     # ══════════════════════════════════════════════════════════════════════════

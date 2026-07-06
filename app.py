@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 import threading
 import webbrowser
 from dataclasses import dataclass
@@ -12,8 +13,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from dash import ALL, Dash, Input, Output, State, callback_context, dcc, html, no_update
+from werkzeug.exceptions import HTTPException
 
 
+LOGGER = logging.getLogger(__name__)
 BRAND = "#17663a"
 ACCENT = "#0f766e"
 WARNING = "#b7791f"
@@ -41,6 +44,7 @@ GROUPS = {
     "fintech": "Fintech",
     "hebdo": "KPI Hebdo",
     "discipline": "Discipline",
+    "rapport": "Rapport motos",
 }
 
 MOCK_NAMES = [
@@ -74,6 +78,7 @@ INDICATORS = [
     Indicator("flop_beneficiaires", "Top 20 des plus indisciplinés", "discipline", "Les 20 beneficiaires les moins disciplines", "both", "", False, 5, 15),
     Indicator("hebdo_performance", "Versement hebdomadaire", "hebdo", "Repris du KPI financier", "weekly", "%", True, 95, 90),
     Indicator("hebdo_motos_actives", "Motos actives", "hebdo", "Repris du KPI operationnel", "weekly", "", True, 95, 90),
+    Indicator("rapport_motos", "Rapport des versements par moto", "rapport", "Versement recu et versement attendu par identifiant moto", "all", "", True),
 ]
 
 INDICATOR_BY_KEY = {indicator.key: indicator for indicator in INDICATORS}
@@ -146,6 +151,13 @@ REQUIRED_COLUMNS = [
     "score_discipline",
     "top_beneficiaires",
     "flop_beneficiaires",
+]
+
+MOTO_REPORT_COLUMNS = [
+    "date",
+    "moto_id",
+    "versement_attendu",
+    "versement_recu",
 ]
 
 
@@ -288,7 +300,40 @@ def prepare_data(frame: pd.DataFrame) -> pd.DataFrame:
         "Montant total remboursé": "montant_total_rembourse",
         "Montant total attendu": "montant_total_attendu",
     }
+    aliases.update(
+        {
+            "Semaine (lundi)": "date",
+            "Total collecté": "total_collecte",
+            "Total collecté (FCFA)": "total_collecte",
+            "Total collecte (FCFA)": "total_collecte",
+            "Total collecté semaine (FCFA)": "total_collecte",
+            "Montant total remboursé": "montant_total_rembourse",
+            "Montant total attendu (FCFA)": "montant_total_attendu",
+            "Montant attendu semaine (FCFA)": "montant_total_attendu",
+            "Nombre de bénéficiaires": "nombre_beneficiaires",
+            "Nombre bénéficiaires (nb)": "nombre_beneficiaires",
+            "Motos actives (nb)": "motos_actives",
+            "Motos actives\n(nombre)\n[AUTO]": "motos_actives",
+            "Total motos (nb)": "total_motos",
+            "Motos en panne (nb)": "motos_panne",
+            "Bénéficiaires actifs (nb)": "beneficiaires_actifs",
+            "Bénéficiaires initial (nb)": "beneficiaires_initial",
+            "Revenus après projet (FCFA)": "revenus_apres",
+            "Nombre de transactions (nb)": "transactions",
+            "Utilisateurs actifs (nb)": "utilisateurs_actifs",
+            "Paiements à temps (nb)": "paiements_temps",
+            "Paiements attendus (nb)": "paiements_attendus",
+            "Jours actifs (nb)": "jours_actifs",
+            "Jours totaux (nb)": "jours_totaux",
+        }
+    )
     prepared = prepared.rename(columns={k: v for k, v in aliases.items() if k in prepared.columns})
+    if prepared.columns.duplicated().any():
+        deduped = pd.DataFrame(index=prepared.index)
+        for column in dict.fromkeys(prepared.columns):
+            matches = prepared.loc[:, prepared.columns == column]
+            deduped[column] = matches.iloc[:, 0] if matches.shape[1] == 1 else matches.bfill(axis=1).iloc[:, 0]
+        prepared = deduped
     if "date" not in prepared.columns:
         raise ValueError("Colonne manquante: date")
     for column in REQUIRED_COLUMNS:
@@ -299,12 +344,100 @@ def prepare_data(frame: pd.DataFrame) -> pd.DataFrame:
     for column in REQUIRED_COLUMNS:
         if column != "date":
             prepared[column] = pd.to_numeric(prepared[column], errors="coerce").fillna(0)
+    inactive_from_motos = (prepared["total_motos"] - prepared["motos_actives"]).clip(lower=0)
+    prepared["jours_sans_activite"] = prepared["jours_sans_activite"].where(
+        prepared["jours_sans_activite"] > 0,
+        inactive_from_motos,
+    )
     prepared["month"] = prepared["date"].dt.to_period("M").dt.to_timestamp()
     prepared["week_start"] = prepared["date"] - pd.to_timedelta(prepared["date"].dt.weekday, unit="D")
     return prepared.sort_values("date").reset_index(drop=True)
 
 
+def prepare_moto_report(frame: pd.DataFrame) -> pd.DataFrame:
+    aliases = {
+        "Date": "date",
+        "Periode": "date",
+        "Semaine": "date",
+        "Moto": "moto_id",
+        "moto": "moto_id",
+        "Identifiant moto": "moto_id",
+        "identifiant_moto": "moto_id",
+        "Versement attendu": "versement_attendu",
+        "versement attendu": "versement_attendu",
+        "montant_attendu": "versement_attendu",
+        "Montant attendu": "versement_attendu",
+        "Versement recu": "versement_recu",
+        "Versement reçu": "versement_recu",
+        "versement reçu": "versement_recu",
+        "montant_recu": "versement_recu",
+        "Montant recu": "versement_recu",
+        "Montant reçu": "versement_recu",
+    }
+    prepared = frame.copy().rename(columns={k: v for k, v in aliases.items() if k in frame.columns})
+    missing = [column for column in MOTO_REPORT_COLUMNS if column not in prepared.columns]
+    if missing:
+        raise ValueError(f"Colonnes rapport motos manquantes: {', '.join(missing)}")
+    prepared = prepared[MOTO_REPORT_COLUMNS].copy()
+    prepared["date"] = pd.to_datetime(prepared["date"], errors="coerce")
+    prepared["moto_id"] = prepared["moto_id"].astype(str).str.strip().str.upper()
+    prepared = prepared.dropna(subset=["date"])
+    prepared = prepared[prepared["moto_id"] != ""]
+    for column in ("versement_attendu", "versement_recu"):
+        prepared[column] = pd.to_numeric(prepared[column], errors="coerce").fillna(0)
+    prepared["month"] = prepared["date"].dt.to_period("M").dt.to_timestamp()
+    prepared["week_start"] = prepared["date"] - pd.to_timedelta(prepared["date"].dt.weekday, unit="D")
+    return prepared.sort_values(["moto_id", "date"]).reset_index(drop=True)
+
+
+def promote_excel_header(sheet_frame: pd.DataFrame) -> pd.DataFrame:
+    header_markers = {
+        "date",
+        "Date",
+        "Periode",
+        "week_start",
+        "Semaine",
+        "Semaine (lundi)",
+        "moto_id",
+        "Moto",
+        "Identifiant moto",
+    }
+    if any(str(column).strip() in header_markers for column in sheet_frame.columns):
+        return sheet_frame
+    for row_index in range(min(8, len(sheet_frame))):
+        values = [str(value).strip() for value in sheet_frame.iloc[row_index].tolist()]
+        if any(value in header_markers for value in values):
+            promoted = sheet_frame.iloc[row_index + 1 :].copy()
+            promoted.columns = values
+            promoted = promoted.loc[:, [column not in {"", "nan", "NaN", "None"} for column in promoted.columns]]
+            return promoted.reset_index(drop=True)
+    return sheet_frame
+
+
+def make_sample_moto_report(frame: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    motos = [f"MOTO-{1001 + index}" for index in range(30)]
+    for row_index, row in frame.iterrows():
+        expected_total = float(row.get("montant_total_attendu", 0))
+        received_total = float(row.get("total_collecte", row.get("montant_total_rembourse", 0)))
+        expected_weights = np.array([1 + ((stable_offset(moto) + row_index) % 7) / 20 for moto in motos], dtype=float)
+        received_weights = np.array([1 + ((stable_offset(moto) + row_index * 3) % 9) / 24 for moto in motos], dtype=float)
+        expected_values = expected_total * expected_weights / expected_weights.sum()
+        received_values = received_total * received_weights / received_weights.sum()
+        for moto, expected, received in zip(motos, expected_values, received_values):
+            rows.append(
+                {
+                    "date": row["date"],
+                    "moto_id": moto,
+                    "versement_attendu": round(float(expected), 0),
+                    "versement_recu": round(float(received), 0),
+                }
+            )
+    return prepare_moto_report(pd.DataFrame(rows))
+
+
 SAMPLE_DATA = prepare_data(make_sample_data())
+MOTO_REPORT_DATA = make_sample_moto_report(SAMPLE_DATA)
 DATA_VERSION = 0
 
 
@@ -390,6 +523,7 @@ def compute_metrics(frame: pd.DataFrame, mode: str) -> dict[str, float]:
     }
     values["hebdo_performance"] = values["performance_hebdomadaire"]
     values["hebdo_motos_actives"] = values["motos_actives"]
+    values["rapport_motos"] = float(MOTO_REPORT_DATA["moto_id"].nunique()) if not MOTO_REPORT_DATA.empty else 0
     return values
 
 
@@ -414,6 +548,8 @@ def format_delta(value: float, unit: str) -> str:
 
 
 def format_indicator_delta(indicator: Indicator, value: float) -> str:
+    if abs(value) < 0.05:
+        return "Stable"
     return f"{value:+.1f}%"
 
 
@@ -1324,6 +1460,302 @@ def build_trend_chart(indicator: Indicator, mode: str) -> go.Figure:
     return fig
 
 
+def moto_options() -> list[dict[str, str]]:
+    if MOTO_REPORT_DATA.empty:
+        return []
+    return [
+        {"label": moto, "value": moto}
+        for moto in sorted(MOTO_REPORT_DATA["moto_id"].dropna().unique())
+    ]
+
+
+def default_moto_id() -> str | None:
+    options = moto_options()
+    return options[0]["value"] if options else None
+
+
+def moto_report_frequency_frame(moto_id: str | None, mode: str) -> pd.DataFrame:
+    if not moto_id or MOTO_REPORT_DATA.empty:
+        return pd.DataFrame(columns=["periode", "versement_attendu", "versement_recu", "taux_versement"])
+    frame = MOTO_REPORT_DATA[MOTO_REPORT_DATA["moto_id"] == str(moto_id).upper()].copy()
+    if frame.empty:
+        return pd.DataFrame(columns=["periode", "versement_attendu", "versement_recu", "ecart", "taux_versement"])
+    if mode == "weekly":
+        grouped = frame.groupby("week_start", as_index=False)[["versement_attendu", "versement_recu"]].sum()
+        grouped = grouped.rename(columns={"week_start": "periode"})
+    elif mode == "monthly":
+        grouped = frame.groupby("month", as_index=False)[["versement_attendu", "versement_recu"]].sum()
+        grouped = grouped.rename(columns={"month": "periode"})
+    else:
+        grouped = frame.groupby("date", as_index=False)[["versement_attendu", "versement_recu"]].sum()
+        grouped = grouped.rename(columns={"date": "periode"})
+    grouped["taux_versement"] = grouped.apply(
+        lambda row: safe_ratio(row["versement_recu"], row["versement_attendu"]) * 100,
+        axis=1,
+    )
+    grouped["ecart"] = grouped["versement_attendu"] - grouped["versement_recu"]
+    return grouped.sort_values("periode", ascending=False).reset_index(drop=True)
+
+
+def moto_report_cumulative_to_last_payment(moto_id: str | None) -> tuple[float, pd.Timestamp | None]:
+    if not moto_id or MOTO_REPORT_DATA.empty:
+        return 0.0, None
+    frame = MOTO_REPORT_DATA[MOTO_REPORT_DATA["moto_id"] == str(moto_id).upper()].copy()
+    if frame.empty:
+        return 0.0, None
+    last_payment_date = frame.loc[frame["versement_recu"] > 0, "date"].max()
+    if pd.isna(last_payment_date):
+        return 0.0, None
+    cumulative = frame.loc[frame["date"] <= last_payment_date, "versement_recu"].sum()
+    return float(cumulative), pd.to_datetime(last_payment_date)
+
+
+def moto_report_download_frame(moto_id: str | None, mode: str) -> pd.DataFrame:
+    frame = moto_report_frequency_frame(moto_id, mode)
+    if frame.empty:
+        return pd.DataFrame(columns=["Moto", "Frequence", "Periode", "Versement attendu", "Versement recu", "Ecart", "Taux de versement"])
+    export = frame.copy()
+    export.insert(0, "moto_id", str(moto_id).upper())
+    export.insert(1, "frequence", FREQUENCY_LABELS.get(mode, mode))
+    export["periode"] = export["periode"].dt.strftime("%Y-%m-%d")
+    export["taux_versement"] = export["taux_versement"].round(2)
+    return export.rename(
+        columns={
+            "moto_id": "Moto",
+            "frequence": "Frequence",
+            "periode": "Periode",
+            "versement_attendu": "Versement attendu",
+            "versement_recu": "Versement recu",
+            "ecart": "Ecart",
+            "taux_versement": "Taux de versement",
+        }
+    )
+
+
+def build_moto_report_chart(frame: pd.DataFrame, mode: str) -> go.Figure:
+    fig = go.Figure()
+    chart_frame = frame.sort_values("periode").tail(18)
+    if mode == "weekly":
+        labels = [f"Sem {int(period.strftime('%W'))} - {period.strftime('%d/%m')}" for period in chart_frame["periode"]]
+    elif mode == "monthly":
+        labels = [period.strftime("%m/%Y") for period in chart_frame["periode"]]
+    else:
+        labels = [period.strftime("%d/%m") for period in chart_frame["periode"]]
+    fig.add_trace(
+        go.Bar(
+            x=labels,
+            y=chart_frame["versement_attendu"],
+            name="Attendu",
+            marker_color="#94a3b8",
+            hovertemplate="<b>%{x}</b><br>Attendu: %{y:,.0f} FCFA<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=labels,
+            y=chart_frame["versement_recu"],
+            name="Recu",
+            marker_color=ACCENT,
+            hovertemplate="<b>%{x}</b><br>Recu: %{y:,.0f} FCFA<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=labels,
+            y=chart_frame["ecart"],
+            name="Ecart",
+            mode="lines+markers",
+            line={"color": DANGER, "width": 3},
+            marker={"size": 7, "color": DANGER},
+            hovertemplate="<b>%{x}</b><br>Ecart: %{y:,.0f} FCFA<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        height=345,
+        barmode="group",
+        margin={"l": 20, "r": 20, "t": 20, "b": 55},
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        legend={"orientation": "h", "y": 1.08, "x": 0},
+        font={"family": "Inter, Segoe UI, Arial, sans-serif", "color": "#111827"},
+    )
+    fig.update_yaxes(title="FCFA", gridcolor="#edf2f7", zerolinecolor="#dbe3ea")
+    fig.update_xaxes(showgrid=False, tickangle=-35 if mode != "monthly" else 0)
+    return fig
+
+
+def render_moto_report_detail(moto_id: str | None, mode: str) -> html.Div:
+    if not moto_id:
+        return html.Div("Aucune moto disponible dans les donnees importees.", className="empty-state")
+    frame = moto_report_frequency_frame(moto_id, mode)
+    if frame.empty:
+        return html.Div(f"Aucun versement trouve pour {moto_id}.", className="empty-state")
+    latest = frame.iloc[0]
+    total_expected = float(latest["versement_attendu"])
+    total_received = float(latest["versement_recu"])
+    gap = float(latest["ecart"])
+    rate = safe_ratio(total_received, total_expected) * 100
+    cumulative_received, last_payment_date = moto_report_cumulative_to_last_payment(moto_id)
+    cumulative_status = (
+        f"Jusqu'au {last_payment_date.strftime('%d/%m/%Y')}"
+        if last_payment_date is not None
+        else "Aucun versement"
+    )
+    if mode == "weekly":
+        period_status = f"Semaine du {pd.to_datetime(latest['periode']).strftime('%d/%m/%Y')}"
+    elif mode == "monthly":
+        period_status = pd.to_datetime(latest["periode"]).strftime("%m/%Y")
+    else:
+        period_status = pd.to_datetime(latest["periode"]).strftime("%d/%m/%Y")
+    rows = []
+    for _, row in frame.head(80).iterrows():
+        period = row["periode"]
+        if mode == "weekly":
+            label = f"Semaine du {period.strftime('%d/%m/%Y')}"
+        elif mode == "monthly":
+            label = period.strftime("%m/%Y")
+        else:
+            label = period.strftime("%d/%m/%Y")
+        rows.append(
+            html.Tr(
+                [
+                    html.Td(label),
+                    html.Td(format_value(float(row["versement_attendu"]), "FCFA")),
+                    html.Td(format_value(float(row["versement_recu"]), "FCFA")),
+                    html.Td(format_value(float(row["ecart"]), "FCFA")),
+                    html.Td(format_value(float(row["taux_versement"]), "%")),
+                ]
+            )
+        )
+    return html.Div(
+        [
+            html.Div(
+                [
+                    kpi_card("Moto selectionnee", moto_id, FREQUENCY_LABELS.get(mode, mode), ACCENT),
+                    kpi_card("Versement attendu", format_value(total_expected, "FCFA"), period_status, INFO),
+                    kpi_card("Versement recu", format_value(total_received, "FCFA"), period_status, BRAND),
+                    kpi_card("Ecart", format_value(gap, "FCFA"), period_status, DANGER if gap > 0 else BRAND),
+                    kpi_card("Taux de versement", format_value(rate, "%"), period_status, BRAND if rate >= 90 else WARNING),
+                    kpi_card("Total versements a jour J", format_value(cumulative_received, "FCFA"), cumulative_status, ACCENT),
+                ],
+                className="cards-grid report-summary-grid",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.H3("Versements par periode"),
+                            html.P(
+                                f"Derniere periode chargee: {pd.to_datetime(latest['periode']).strftime('%d/%m/%Y')}."
+                            ),
+                        ],
+                        className="chart-copy",
+                    ),
+                    dcc.Graph(figure=build_moto_report_chart(frame, mode), config={"displayModeBar": False}),
+                ],
+                className="chart-panel",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.H3("Detail des versements"),
+                            html.P("Les lignes affichent le versement attendu, le versement recu et le taux obtenu."),
+                        ],
+                        className="chart-copy",
+                    ),
+                    html.Div(
+                        html.Table(
+                            [
+                                html.Thead(
+                                    html.Tr(
+                                        [
+                                            html.Th("Periode"),
+                                            html.Th("Versement attendu"),
+                                            html.Th("Versement recu"),
+                                            html.Th("Ecart"),
+                                            html.Th("Taux"),
+                                        ]
+                                    )
+                                ),
+                                html.Tbody(rows),
+                            ],
+                            className="cause-table",
+                        ),
+                        className="table-scroll",
+                    ),
+                ],
+                className="chart-panel report-print-area",
+            ),
+        ],
+        id="moto-report-printable",
+        className="report-detail",
+    )
+
+
+def render_moto_report_page() -> html.Section:
+    options = moto_options()
+    selected_moto = options[0]["value"] if options else None
+    return html.Section(
+        [
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Span("Rapport motos", className="eyebrow"),
+                            html.H2("Rapport des versements par moto"),
+                            html.P("Recherchez une moto par identifiant, choisissez la frequence, puis imprimez le rapport."),
+                        ],
+                        className="section-title",
+                    ),
+                    html.Div(
+                        [
+                            html.Button("Imprimer", id="print-report-button", n_clicks=0, className="secondary-button", type="button"),
+                        ],
+                        className="report-actions",
+                    ),
+                ],
+                className="dashboard-title-row report-title-row",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Label("Rechercher une moto"),
+                            dcc.Dropdown(
+                                options,
+                                selected_moto,
+                                id="moto-search",
+                                clearable=False,
+                                searchable=True,
+                                placeholder="Exemple: MOTO-1002",
+                            ),
+                        ],
+                        className="filter-field",
+                    ),
+                    html.Div(
+                        [
+                            html.Label("Frequence"),
+                            dcc.RadioItems(
+                                frequency_options(INDICATOR_BY_KEY["rapport_motos"]),
+                                "daily",
+                                id="report-frequency",
+                                className="period-mode report-frequency",
+                                inputClassName="period-input",
+                                labelClassName="period-label",
+                            ),
+                        ],
+                        className="filter-field",
+                    ),
+                ],
+                className="report-filters",
+            ),
+            html.Div(id="moto-report-detail", children=render_moto_report_detail(selected_moto, "daily")),
+        ],
+        className="report-panel",
+    )
+
+
 def home_block(group: str, context: dict[str, dict]) -> html.Div:
     indicators = indicators_for_group(group)
     states = [alert_for(indicator, indicator_value(indicator, context))[0] for indicator in indicators]
@@ -1415,7 +1847,24 @@ def layout() -> html.Div:
 app = Dash(__name__)
 app.title = "YUNUS CAM-MOTO"
 app.config.suppress_callback_exceptions = True
+app.server.config.update(PROPAGATE_EXCEPTIONS=False)
+app.enable_dev_tools(
+    debug=False,
+    dev_tools_ui=False,
+    dev_tools_props_check=False,
+    dev_tools_hot_reload=False,
+    dev_tools_serve_dev_bundles=False,
+    dev_tools_prune_errors=True,
+)
 app.layout = layout
+
+
+@app.server.errorhandler(Exception)
+def handle_unexpected_error(exc: Exception):
+    if isinstance(exc, HTTPException):
+        return exc
+    LOGGER.exception("Erreur serveur non exposee au navigateur")
+    return "Erreur interne. Consultez les journaux du serveur.", 500
 
 
 @app.callback(
@@ -1446,6 +1895,8 @@ def navigate(home_clicks: int, previous_month_clicks: int, group_clicks: list[in
         return "previous-month", current_group, no_update, False, True
     if isinstance(triggered, dict) and triggered.get("type") == "group-button":
         group = triggered["group"]
+        if group == "rapport":
+            return "moto-report", group, "rapport_motos", False, False
         if group == "hebdo":
             first_indicator = indicators_for_group(group)[0].key
             return "hebdo-home", group, first_indicator, False, False
@@ -1536,7 +1987,7 @@ def refresh_filters(refresh: int):
     State("upload-refresh", "data"),
 )
 def import_data(contents: str | None, filename: str | None, refresh: int):
-    global SAMPLE_DATA, DATA_VERSION
+    global SAMPLE_DATA, MOTO_REPORT_DATA, DATA_VERSION
     if not contents:
         return "", refresh
     try:
@@ -1544,16 +1995,51 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
         decoded = base64.b64decode(encoded)
         sheets = pd.read_excel(io.BytesIO(decoded), sheet_name=None, engine="openpyxl")
         frames = []
-        for sheet in sheets.values():
-            sheet_frame = sheet.copy()
+        moto_frames = []
+        metric_column_candidates = set(REQUIRED_COLUMNS) | {
+            "Montant total attendu (FCFA)",
+            "Total collecté (FCFA)",
+            "Total collecté semaine (FCFA)",
+            "Montant attendu semaine (FCFA)",
+            "Nombre de bénéficiaires",
+            "Nombre bénéficiaires (nb)",
+            "Motos actives (nb)",
+            "Total motos (nb)",
+            "Motos en panne (nb)",
+            "Bénéficiaires actifs (nb)",
+            "Bénéficiaires initial (nb)",
+            "Revenus après projet (FCFA)",
+            "Nombre de transactions (nb)",
+            "Utilisateurs actifs (nb)",
+            "Paiements à temps (nb)",
+            "Paiements attendus (nb)",
+            "Jours actifs (nb)",
+            "Jours totaux (nb)",
+        }
+        for sheet_name, sheet in sheets.items():
+            if str(sheet_name).strip().lower() == "kpi hebdo":
+                continue
+            sheet_frame = promote_excel_header(sheet.copy())
+            sheet_frame = sheet_frame.loc[:, ~sheet_frame.columns.duplicated()]
+            normalized_columns = {str(column).strip() for column in sheet_frame.columns}
+            moto_column_candidates = {"moto_id", "Moto", "moto", "Identifiant moto", "identifiant_moto"}
+            expected_candidates = {"versement_attendu", "Versement attendu", "versement attendu", "montant_attendu", "Montant attendu"}
+            received_candidates = {"versement_recu", "Versement recu", "Versement reçu", "versement reçu", "montant_recu", "Montant recu", "Montant reçu"}
+            if (
+                normalized_columns & moto_column_candidates
+                and normalized_columns & expected_candidates
+                and normalized_columns & received_candidates
+            ):
+                moto_frames.append(sheet_frame)
+                continue
             if "date" not in sheet_frame.columns:
-                for date_column in ("week_start", "Periode", "Date"):
+                for date_column in ("week_start", "Periode", "Date", "Semaine (lundi)"):
                     if date_column in sheet_frame.columns:
                         sheet_frame = sheet_frame.rename(columns={date_column: "date"})
                         break
             if "date" not in sheet_frame.columns:
                 continue
-            if not any(column in REQUIRED_COLUMNS and column != "date" for column in sheet_frame.columns):
+            if not any(column in metric_column_candidates and column != "date" for column in sheet_frame.columns):
                 continue
             sheet_frame["date"] = pd.to_datetime(sheet_frame["date"], errors="coerce")
             sheet_frame = sheet_frame.dropna(subset=["date"])
@@ -1572,12 +2058,26 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
                     frame = frame.rename(columns={duplicate: original})
             frame = frame.drop(columns=[column for column in frame.columns if column.endswith("_dup")])
         SAMPLE_DATA = prepare_data(frame)
+        if moto_frames:
+            MOTO_REPORT_DATA = prepare_moto_report(pd.concat(moto_frames, ignore_index=True))
+        else:
+            MOTO_REPORT_DATA = make_sample_moto_report(SAMPLE_DATA)
         DATA_VERSION += 1
         indicator_timeseries_cached.cache_clear()
         involved_timeseries_cached.cache_clear()
         return f"Import reussi: {filename} ({len(SAMPLE_DATA)} lignes).", refresh + 1
     except Exception as exc:
-        return f"Import impossible: {exc}", refresh
+        LOGGER.exception("Import Excel impossible")
+        return "Import impossible: le fichier ne correspond pas au modele attendu.", refresh
+
+
+@app.callback(
+    Output("moto-report-detail", "children"),
+    Input("moto-search", "value"),
+    Input("report-frequency", "value"),
+)
+def update_moto_report_detail(moto_id: str | None, mode: str):
+    return render_moto_report_detail(moto_id, mode or "daily")
 
 
 @app.callback(
@@ -1707,6 +2207,18 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
             "shell home-shell",
         )
 
+    if selected_page == "moto-report":
+        return (
+            render_moto_report_page(),
+            True,
+            True,
+            True,
+            "Rapport motos: utilisez la recherche et la frequence dans la page.",
+            "sidebar is-hidden",
+            {},
+            "shell home-shell",
+        )
+
     if selected_page == "group-overview":
         group = HIDDEN_GROUP_REMAP.get(group, group)
         if group not in GROUPS:
@@ -1787,7 +2299,7 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
     indicator = INDICATOR_BY_KEY[indicator_key]
     current, previous, current_label, previous_label = filter_period(selected_day, selected_week, selected_month, mode)
     values = compute_metrics(current, mode)
-    previous_values = compute_metrics(previous, mode) if not previous.empty else compute_metrics(current, mode)
+    previous_values = compute_metrics(previous, mode)
     values["__mode"] = mode
     value = values[indicator.key]
     previous_value = previous_values[indicator.key]
@@ -2005,30 +2517,54 @@ app.index_string = """
             .cause-table th, .cause-table td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); }
             .cause-table th { color: #334155; background: #f8fafc; font-weight: 850; }
             .cause-table td { color: #111827; font-weight: 650; }
+            .report-panel { display: grid; gap: 18px; }
+            .report-title-row { margin-bottom: 0; }
+            .report-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+            .report-filters { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr); gap: 16px; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06); }
+            .report-frequency { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+            .report-detail { display: grid; gap: 18px; }
+            .report-summary-grid { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+            .empty-state { background: white; border: 1px dashed var(--line); border-radius: 8px; padding: 22px; color: var(--muted); font-weight: 800; }
             .muted { font-size: 13px; }
             .Select-control { border-color: var(--line) !important; border-radius: 7px !important; min-height: 40px; }
             .Select-placeholder, .Select-value-label { font-weight: 750; color: #334155 !important; }
             @media (max-width: 1080px) {
                 .shell { grid-template-columns: 1fr; }
                 .sidebar { position: static; }
-                .cards-grid, .hebdo-home-grid, .alert-grid, .dashboard-alert-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+                .cards-grid, .hebdo-home-grid, .alert-grid, .dashboard-alert-grid, .report-summary-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
                 .dashboard-kpi-row { grid-template-columns: 1fr; }
                 .indicator-summary { grid-template-columns: 1fr; }
+                .report-filters { grid-template-columns: 1fr; }
             }
             @media (max-width: 680px) {
                 .app-header { padding: 18px; align-items: start; flex-direction: column; }
                 .header-actions { justify-content: flex-start; }
                 .shell { padding: 16px; }
-                .cards-grid, .hebdo-home-grid, .alert-grid, .dashboard-alert-grid { grid-template-columns: 1fr; }
+                .cards-grid, .hebdo-home-grid, .alert-grid, .dashboard-alert-grid, .report-summary-grid { grid-template-columns: 1fr; }
                 .dashboard-title-row { flex-direction: column; }
+                .report-actions { justify-content: flex-start; }
                 .period-pill { white-space: normal; }
                 .hero-value { font-size: 34px; }
+            }
+            @media print {
+                body { background: white; }
+                .app-header, .report-actions, .report-filters, .upload-status { display: none !important; }
+                .shell, .shell.home-shell { max-width: none; padding: 0; display: block; }
+                .chart-panel, .kpi-card, .report-filters { box-shadow: none !important; }
+                .table-scroll { max-height: none; overflow: visible; }
             }
         </style>
     </head>
     <body>
         {%app_entry%}
         <footer>{%config%}{%scripts%}{%renderer%}</footer>
+        <script>
+            document.addEventListener("click", function(event) {
+                if (event.target && event.target.id === "print-report-button") {
+                    window.print();
+                }
+            });
+        </script>
     </body>
 </html>
 """
@@ -2038,4 +2574,12 @@ if __name__ == "__main__":
     url = "http://127.0.0.1:8060"
     print(f"Ouvrir le dashboard: {url}")
     threading.Timer(1.0, lambda: webbrowser.open_new(url)).start()
-    app.run(debug=True, host="127.0.0.1", port=8060, use_reloader=False)
+    app.run(
+        debug=False,
+        host="127.0.0.1",
+        port=8060,
+        use_reloader=False,
+        dev_tools_ui=False,
+        dev_tools_props_check=False,
+        dev_tools_hot_reload=False,
+    )
