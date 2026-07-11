@@ -3,6 +3,9 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import os
+import subprocess
+import sys
 import threading
 import webbrowser
 from dataclasses import dataclass
@@ -15,6 +18,8 @@ import plotly.graph_objects as go
 from dash import ALL, Dash, Input, Output, State, callback_context, dcc, html, no_update
 from werkzeug.exceptions import HTTPException
 
+from import_storage import load_import, save_import, storage_enabled
+
 
 LOGGER = logging.getLogger(__name__)
 BRAND = "#17663a"
@@ -22,6 +27,9 @@ ACCENT = "#0f766e"
 WARNING = "#b7791f"
 DANGER = "#b91c1c"
 INFO = "#475569"
+TAXI_DASHBOARD_PORT = 8061
+TAXI_DASHBOARD_URL = os.environ.get("TAXI_DASHBOARD_URL", f"http://127.0.0.1:{TAXI_DASHBOARD_PORT}")
+TAXI_DASHBOARD_PROCESS: subprocess.Popen | None = None
 
 
 @dataclass(frozen=True)
@@ -327,6 +335,17 @@ def prepare_data(frame: pd.DataFrame) -> pd.DataFrame:
             "Jours totaux (nb)": "jours_totaux",
         }
     )
+    aliases.update(
+        {
+            "Total collecte (FCFA)": "total_collecte",
+            "Nombre de beneficiaires": "nombre_beneficiaires",
+            "Nombre beneficiaires (nb)": "nombre_beneficiaires",
+            "Beneficiaires actifs (nb)": "beneficiaires_actifs",
+            "Beneficiaires initial (nb)": "beneficiaires_initial",
+            "Revenus apres projet (FCFA)": "revenus_apres",
+            "Paiements a temps (nb)": "paiements_temps",
+        }
+    )
     prepared = prepared.rename(columns={k: v for k, v in aliases.items() if k in prepared.columns})
     if prepared.columns.duplicated().any():
         deduped = pd.DataFrame(index=prepared.index)
@@ -439,6 +458,11 @@ def make_sample_moto_report(frame: pd.DataFrame) -> pd.DataFrame:
 SAMPLE_DATA = prepare_data(make_sample_data())
 MOTO_REPORT_DATA = make_sample_moto_report(SAMPLE_DATA)
 DATA_VERSION = 0
+
+_STORED_IMPORT = load_import("moto")
+if _STORED_IMPORT is not None:
+    SAMPLE_DATA = prepare_data(_STORED_IMPORT.sample_data)
+    MOTO_REPORT_DATA = prepare_moto_report(_STORED_IMPORT.report_data)
 
 
 def period_options() -> tuple[list[dict[str, str]], list[dict[str, str]], list[dict[str, str]]]:
@@ -637,7 +661,6 @@ def indicators_for_group(group: str, mode: str | None = None) -> list[Indicator]
 
 def indicator_options(group: str, mode: str | None = None) -> list[dict[str, str]]:
     return [{"label": indicator.name, "value": indicator.key} for indicator in indicators_for_group(group, mode)]
-
 
 
 # Map hidden groups (removed from GROUPS) to visible ones for dashboard rendering
@@ -1756,6 +1779,63 @@ def render_moto_report_page() -> html.Section:
     )
 
 
+def render_dashboard_selector() -> html.Section:
+    return html.Section(
+        [
+            html.Div(
+                [
+                    html.Span("Selection", className="eyebrow"),
+                    html.H2("Choisissez le dashboard a ouvrir"),
+                    html.P("Deux interfaces sont disponibles: le suivi Moto et le suivi Taxi/Voitures."),
+                ],
+                className="section-title home-title",
+            ),
+            html.Div(
+                [
+                    html.Button(
+                        [
+                            html.Span("Dashboard Moto", className="eyebrow"),
+                            html.Strong("YUNUS CAM-MOTO"),
+                            html.P("KPI motos, rapport des versements par moto et alertes operationnelles."),
+                        ],
+                        id={"type": "dashboard-choice", "dashboard": "moto"},
+                        n_clicks=0,
+                        className="dashboard-choice-card",
+                    ),
+                    html.A(
+                        [
+                            html.Span("Dashboard Taxi", className="eyebrow"),
+                            html.Strong("YUNUS CAM-TAXI"),
+                            html.P("KPI taxis/voitures, rapport des versements par voiture et alertes operationnelles."),
+                        ],
+                        href=TAXI_DASHBOARD_URL,
+                        className="dashboard-choice-card",
+                    ),
+                ],
+                className="dashboard-selector-grid",
+            ),
+        ],
+        className="dashboard-selector",
+    )
+
+
+def render_taxi_dashboard_frame() -> html.Section:
+    return html.Section(
+        [
+            html.Div(
+                [
+                    html.Span("Taxi", className="eyebrow"),
+                    html.H2("Dashboard Taxi / Voitures"),
+                    html.P("Interface taxi chargee depuis le dashboard voitures existant."),
+                ],
+                className="section-title home-title",
+            ),
+            html.Iframe(src=TAXI_DASHBOARD_URL, className="dashboard-frame", title="Dashboard Taxi"),
+        ],
+        className="taxi-dashboard-panel",
+    )
+
+
 def home_block(group: str, context: dict[str, dict]) -> html.Div:
     indicators = indicators_for_group(group)
     states = [alert_for(indicator, indicator_value(indicator, context))[0] for indicator in indicators]
@@ -1783,23 +1863,23 @@ def layout() -> html.Div:
     default_indicator = indicators_for_group(default_group, default_mode)[0]
     return html.Div(
         [
-            dcc.Store(id="selected-page", data="accueil"),
+            dcc.Store(id="selected-page", data="dashboard-selector"),
             dcc.Store(id="upload-refresh", data=0),
             dcc.Store(id="requested-indicator"),
             html.Header(
                 [
                     html.Div(
                         [
-                            html.H1("YUNUS CAM-MOTO"),
-                            html.P("Accueil, blocs KPI, alertes, comparaisons quotidiennes, hebdomadaires et mensuelles."),
+                            html.H1("YUNUS CAM"),
+                            html.P("Selectionnez le dashboard Moto ou Taxi, puis consultez les KPI et alertes."),
                         ]
                     ),
                     html.Div(
                         [
                             dcc.Upload(id="data-upload", children=html.Button("Importer Excel", className="secondary-button"), accept=".xlsx", multiple=False),
-                            html.A("Modèle Excel", href="/assets/modele_kpi_multifeuilles_mis_a_jour.xlsx", className="template-link"),
+                            html.A("Modèle Excel Moto", href="/assets/modele_kpi_moto_par_frequence.xlsx", className="template-link"),
                             html.Button("Mois précédent", id="previous-month-button", n_clicks=0, className="secondary-button"),
-                            html.Button("Accueil", id="home-button", n_clicks=0, className="secondary-button", disabled=True),
+                            html.Button("Choix dashboards", id="home-button", n_clicks=0, className="secondary-button", disabled=True),
                         ],
                         className="header-actions",
                     ),
@@ -1844,7 +1924,7 @@ def layout() -> html.Div:
     )
 
 
-app = Dash(__name__)
+app = Dash(__name__, assets_folder=os.path.join(os.path.dirname(__file__), "assets"))
 app.title = "YUNUS CAM-MOTO"
 app.config.suppress_callback_exceptions = True
 app.server.config.update(PROPAGATE_EXCEPTIONS=False)
@@ -1875,6 +1955,7 @@ def handle_unexpected_error(exc: Exception):
     Output("previous-month-button", "disabled"),
     Input("home-button", "n_clicks"),
     Input("previous-month-button", "n_clicks"),
+    Input({"type": "dashboard-choice", "dashboard": ALL}, "n_clicks"),
     Input({"type": "group-button", "group": ALL}, "n_clicks"),
     Input({"type": "indicator-button", "indicator": ALL}, "n_clicks"),
     State("selected-page", "data"),
@@ -1883,16 +1964,20 @@ def handle_unexpected_error(exc: Exception):
     State("week-filter", "value"),
     State("month-filter", "value"),
 )
-def navigate(home_clicks: int, previous_month_clicks: int, group_clicks: list[int], indicator_clicks: list[int], selected_page: str, current_group: str, selected_day: str, selected_week: str, selected_month: str):
+def navigate(home_clicks: int, previous_month_clicks: int, dashboard_clicks: list[int], group_clicks: list[int], indicator_clicks: list[int], selected_page: str, current_group: str, selected_day: str, selected_week: str, selected_month: str):
     triggered = callback_context.triggered_id
     
     def page_button_states(page: str):
-        return page == "accueil", page == "previous-month"
+        return page == "dashboard-selector", page in {"dashboard-selector", "taxi-dashboard", "previous-month"}
     
     if triggered == "home-button":
-        return "accueil", current_group, no_update, True, False
+        return "dashboard-selector", current_group, no_update, True, True
     if triggered == "previous-month-button":
         return "previous-month", current_group, no_update, False, True
+    if isinstance(triggered, dict) and triggered.get("type") == "dashboard-choice":
+        if triggered.get("dashboard") == "taxi":
+            return "taxi-dashboard", current_group, no_update, False, True
+        return "accueil", current_group, no_update, False, False
     if isinstance(triggered, dict) and triggered.get("type") == "group-button":
         group = triggered["group"]
         if group == "rapport":
@@ -1919,7 +2004,8 @@ def navigate(home_clicks: int, previous_month_clicks: int, group_clicks: list[in
         real_key = source_indicator_key(indicator_key)
         real_group = source_group_for_indicator(real_key)
         return "dashboard", real_group, real_key, False, False
-    return selected_page, current_group, no_update, selected_page == "accueil", selected_page == "previous-month"
+    home_disabled, previous_disabled = page_button_states(selected_page)
+    return selected_page, current_group, no_update, home_disabled, previous_disabled
 
 
 @app.callback(
@@ -2016,6 +2102,15 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
             "Jours actifs (nb)",
             "Jours totaux (nb)",
         }
+        metric_column_candidates |= {
+            "Total collecte (FCFA)",
+            "Nombre de beneficiaires",
+            "Nombre beneficiaires (nb)",
+            "Beneficiaires actifs (nb)",
+            "Beneficiaires initial (nb)",
+            "Revenus apres projet (FCFA)",
+            "Paiements a temps (nb)",
+        }
         for sheet_name, sheet in sheets.items():
             if str(sheet_name).strip().lower() == "kpi hebdo":
                 continue
@@ -2065,7 +2160,9 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
         DATA_VERSION += 1
         indicator_timeseries_cached.cache_clear()
         involved_timeseries_cached.cache_clear()
-        return f"Import reussi: {filename} ({len(SAMPLE_DATA)} lignes).", refresh + 1
+        persisted = save_import("moto", SAMPLE_DATA, MOTO_REPORT_DATA)
+        persistence_note = " Sauvegarde base active." if persisted else (" Sauvegarde base inactive: DATABASE_URL absent." if not storage_enabled() else " Sauvegarde base impossible.")
+        return f"Import reussi: {filename} ({len(SAMPLE_DATA)} lignes).{persistence_note}", refresh + 1
     except Exception as exc:
         LOGGER.exception("Import Excel impossible")
         return "Import impossible: le fichier ne correspond pas au modele attendu.", refresh
@@ -2100,6 +2197,30 @@ def update_moto_report_detail(moto_id: str | None, mode: str):
     Input("requested-indicator", "data"),
 )
 def render_page(selected_page: str, group: str, indicator_key: str, selected_month: str, selected_week: str, selected_day: str, mode: str, refresh: int, requested_indicator: str | None):
+    if selected_page == "dashboard-selector":
+        return (
+            render_dashboard_selector(),
+            True,
+            True,
+            True,
+            "Selectionnez le dashboard a consulter.",
+            "sidebar is-hidden",
+            {},
+            "shell home-shell",
+        )
+
+    if selected_page == "taxi-dashboard":
+        return (
+            render_taxi_dashboard_frame(),
+            True,
+            True,
+            True,
+            "Dashboard Taxi charge dans le panneau principal.",
+            "sidebar is-hidden",
+            {},
+            "shell home-shell dashboard-frame-shell",
+        )
+
     if not indicator_key or indicator_key not in INDICATOR_BY_KEY:
         return no_update, no_update, no_update, no_update, no_update, no_update, no_update, no_update
 
@@ -2112,8 +2233,8 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
                     html.Div(
                         [
                             html.Span("Accueil", className="eyebrow"),
-                            html.H2("Vue générale des indicateurs"),
-                            html.P(f"État général calculé sur la période sélectionnée: {current_label}. Cliquez sur un bloc pour ouvrir son dashboard."),
+                            html.H2("Vue generale des indicateurs"),
+                            html.P(f"Etat general calcule sur la periode selectionnee: {current_label}. Cliquez sur un bloc pour ouvrir son dashboard."),
                         ],
                         className="section-title home-title",
                     ),
@@ -2124,12 +2245,11 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
             True,
             True,
             False,
-            "Accueil: le mois reste actif pour calculer l'état général des blocs.",
+            "Accueil: le mois reste actif pour calculer l'etat general des blocs.",
             "sidebar is-hidden",
             {},
             "shell home-shell",
         )
-
     if selected_page == "previous-month":
         selected_month_start = pd.to_datetime(selected_month + "-01")
         previous_month = selected_month_start - pd.DateOffset(months=1)
@@ -2461,6 +2581,7 @@ app.index_string = """
             .template-link { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: #0f766e; font-size: 13px; font-weight: 850; padding: 0 12px; text-decoration: none; }
             .shell { max-width: 1480px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 22px; align-items: start; }
             .shell.home-shell { max-width: 1180px; grid-template-columns: 1fr; }
+            .shell.dashboard-frame-shell { max-width: none; padding: 16px; }
             .content-stack { display: grid; gap: 14px; min-width: 0; }
             .upload-status { color: #0f766e; font-size: 13px; font-weight: 800; }
             .sidebar { position: sticky; top: 18px; background: white; border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 16px; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06); }
@@ -2476,6 +2597,15 @@ app.index_string = """
             .period-label { display: flex !important; align-items: center; gap: 7px; min-height: 38px; border: 1px solid var(--line); border-radius: 7px; background: white; padding: 0 11px; font-weight: 800 !important; margin: 0 !important; color: #334155 !important; }
             .section-title { display: grid; gap: 6px; max-width: 860px; }
             .home-title { margin-bottom: 18px; }
+            .dashboard-selector { min-height: calc(100vh - 170px); display: grid; align-content: center; }
+            .dashboard-selector-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 18px; }
+            .dashboard-choice-card { min-height: 230px; border: 1px solid var(--line); border-top: 6px solid #17663a; background: white; border-radius: 10px; padding: 24px; display: grid; align-content: start; gap: 12px; text-align: left; cursor: pointer; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06); transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; font: inherit; color: inherit; text-decoration: none; }
+            .dashboard-choice-card:nth-child(2) { border-top-color: #0f766e; }
+            .dashboard-choice-card strong { font-size: 24px; font-weight: 900; }
+            .dashboard-choice-card:hover { transform: translateY(-4px); box-shadow: 0 20px 42px rgba(15, 23, 42, 0.13); border-color: #b7d8cf; }
+            .dashboard-choice-card:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.28); outline-offset: 2px; }
+            .taxi-dashboard-panel { display: grid; gap: 14px; min-height: calc(100vh - 130px); }
+            .dashboard-frame { width: 100%; min-height: calc(100vh - 210px); border: 1px solid var(--line); border-radius: 10px; background: white; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06); }
             .dashboard-title-row { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 18px; }
             .period-pill { border: 1px solid #b7d8cf; background: var(--soft); color: #115e59; border-radius: 999px; padding: 9px 14px; font-weight: 850; white-space: nowrap; }
             .alert { display: inline-flex; align-items: center; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 800; padding: 5px 10px; }
@@ -2532,6 +2662,7 @@ app.index_string = """
                 .shell { grid-template-columns: 1fr; }
                 .sidebar { position: static; }
                 .cards-grid, .hebdo-home-grid, .alert-grid, .dashboard-alert-grid, .report-summary-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+                .dashboard-selector-grid { grid-template-columns: 1fr; }
                 .dashboard-kpi-row { grid-template-columns: 1fr; }
                 .indicator-summary { grid-template-columns: 1fr; }
                 .report-filters { grid-template-columns: 1fr; }
@@ -2570,7 +2701,33 @@ app.index_string = """
 """
 
 
+def start_taxi_dashboard_server() -> None:
+    global TAXI_DASHBOARD_PROCESS
+    taxi_app_path = os.path.join(os.path.dirname(__file__), "dashboard2.1", "app.py")
+    if not os.path.exists(taxi_app_path):
+        LOGGER.warning("Dashboard taxi introuvable: %s", taxi_app_path)
+        return
+    env = os.environ.copy()
+    env["DASHBOARD_CHILD_PROCESS"] = "1"
+    TAXI_DASHBOARD_PROCESS = subprocess.Popen(
+        [sys.executable, taxi_app_path],
+        cwd=os.path.dirname(taxi_app_path),
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def stop_taxi_dashboard_server() -> None:
+    if TAXI_DASHBOARD_PROCESS and TAXI_DASHBOARD_PROCESS.poll() is None:
+        TAXI_DASHBOARD_PROCESS.terminate()
+
+
 if __name__ == "__main__":
+    start_taxi_dashboard_server()
+    import atexit
+
+    atexit.register(stop_taxi_dashboard_server)
     url = "http://127.0.0.1:8060"
     print(f"Ouvrir le dashboard: {url}")
     threading.Timer(1.0, lambda: webbrowser.open_new(url)).start()
