@@ -19,7 +19,7 @@ import plotly.graph_objects as go
 from dash import ALL, Dash, Input, Output, State, callback_context, dcc, html, no_update
 from werkzeug.exceptions import HTTPException
 
-from import_storage import load_import, save_import, storage_enabled
+from import_storage import load_import, save_import, storage_enabled, storage_status
 
 
 LOGGER = logging.getLogger(__name__)
@@ -1857,6 +1857,15 @@ def home_block(group: str, context: dict[str, dict]) -> html.Div:
     )
 
 
+def storage_badge() -> html.Span:
+    status = storage_status()
+    return html.Span(
+        status.label,
+        className="storage-badge storage-ok" if status.ok else "storage-badge storage-ko",
+        title=status.detail,
+    )
+
+
 def layout() -> html.Div:
     month_options, week_options, day_options = period_options()
     default_month, default_week, default_day = default_periods()
@@ -1881,8 +1890,7 @@ def layout() -> html.Div:
                             dcc.Upload(id="data-upload", children=html.Button("Importer Excel", className="secondary-button"), accept=".xlsx", multiple=False),
                             html.A("Modèle Excel Moto", href="/assets/modele_kpi_moto_par_frequence.xlsx", className="template-link"),
                             html.Button("Mois précédent", id="previous-month-button", n_clicks=0, className="secondary-button"),
-                            html.Button("Choix dashboards", id="home-button", n_clicks=0, className="secondary-button", disabled=True),
-                        ],
+                            html.Button("Choix dashboards", id="home-button", n_clicks=0, className="secondary-button", disabled=True),`r`n                            storage_badge(),`r`n                        ],
                         className="header-actions",
                     ),
                 ],
@@ -2725,6 +2733,7 @@ def start_taxi_dashboard_server() -> None:
         return
     env = os.environ.copy()
     env["DASHBOARD_CHILD_PROCESS"] = "1"
+    env["DASHBOARD_SELECTOR_URL"] = "http://127.0.0.1:8060"
     TAXI_DASHBOARD_PROCESS = subprocess.Popen(
         [sys.executable, taxi_app_path],
         cwd=os.path.dirname(taxi_app_path),
