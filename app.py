@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import importlib.util
 import io
 import logging
 import os
@@ -28,7 +29,8 @@ WARNING = "#b7791f"
 DANGER = "#b91c1c"
 INFO = "#475569"
 TAXI_DASHBOARD_PORT = 8061
-TAXI_DASHBOARD_URL = os.environ.get("TAXI_DASHBOARD_URL", f"http://127.0.0.1:{TAXI_DASHBOARD_PORT}")
+DEFAULT_TAXI_DASHBOARD_URL = "/taxi/" if os.environ.get("VERCEL") else f"http://127.0.0.1:{TAXI_DASHBOARD_PORT}"
+TAXI_DASHBOARD_URL = os.environ.get("TAXI_DASHBOARD_URL", DEFAULT_TAXI_DASHBOARD_URL)
 TAXI_DASHBOARD_PROCESS: subprocess.Popen | None = None
 
 
@@ -1924,11 +1926,11 @@ def layout() -> html.Div:
     )
 
 
-app = Dash(__name__, assets_folder=os.path.join(os.path.dirname(__file__), "assets"))
-app.title = "YUNUS CAM-MOTO"
-app.config.suppress_callback_exceptions = True
-app.server.config.update(PROPAGATE_EXCEPTIONS=False)
-app.enable_dev_tools(
+dash_app = Dash(__name__, assets_folder=os.path.join(os.path.dirname(__file__), "assets"))
+dash_app.title = "YUNUS CAM-MOTO"
+dash_app.config.suppress_callback_exceptions = True
+dash_app.server.config.update(PROPAGATE_EXCEPTIONS=False)
+dash_app.enable_dev_tools(
     debug=False,
     dev_tools_ui=False,
     dev_tools_props_check=False,
@@ -1936,10 +1938,24 @@ app.enable_dev_tools(
     dev_tools_serve_dev_bundles=False,
     dev_tools_prune_errors=True,
 )
-app.layout = layout
+dash_app.layout = layout
+app = dash_app.server
+
+if os.environ.get("VERCEL") and os.environ.get("MOUNT_TAXI_IN_ROOT", "1") == "1":
+    from werkzeug.middleware.dispatcher import DispatcherMiddleware
+
+    taxi_module_path = os.path.join(os.path.dirname(__file__), "dashboard2.1", "app.py")
+    taxi_spec = importlib.util.spec_from_file_location("yunus_cam_taxi_root_mount", taxi_module_path)
+    if taxi_spec and taxi_spec.loader:
+        os.environ["DASH_REQUESTS_PREFIX"] = "/taxi/"
+        taxi_module = importlib.util.module_from_spec(taxi_spec)
+        sys.modules[taxi_spec.name] = taxi_module
+        taxi_spec.loader.exec_module(taxi_module)
+        taxi_wsgi_app = taxi_module.app if callable(taxi_module.app) else taxi_module.app.server
+        app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/taxi": taxi_wsgi_app})
 
 
-@app.server.errorhandler(Exception)
+@dash_app.server.errorhandler(Exception)
 def handle_unexpected_error(exc: Exception):
     if isinstance(exc, HTTPException):
         return exc
@@ -1947,7 +1963,7 @@ def handle_unexpected_error(exc: Exception):
     return "Erreur interne. Consultez les journaux du serveur.", 500
 
 
-@app.callback(
+@dash_app.callback(
     Output("selected-page", "data"),
     Output("group-filter", "value"),
     Output("requested-indicator", "data"),
@@ -2008,7 +2024,7 @@ def navigate(home_clicks: int, previous_month_clicks: int, dashboard_clicks: lis
     return selected_page, current_group, no_update, home_disabled, previous_disabled
 
 
-@app.callback(
+@dash_app.callback(
     Output("indicator-filter", "options"),
     Output("indicator-filter", "value"),
     Input("group-filter", "value"),
@@ -2030,7 +2046,7 @@ def sync_indicator(group: str, mode: str, requested_indicator: str | None, selec
     return options, options[0]["value"]
 
 
-@app.callback(
+@dash_app.callback(
     Output("period-mode", "options"),
     Output("period-mode", "value"),
     Input("group-filter", "value"),
@@ -2050,7 +2066,7 @@ def sync_frequency(group: str, requested_indicator: str | None, current_mode: st
     return options, options[0]["value"]
 
 
-@app.callback(
+@dash_app.callback(
     Output("month-filter", "options"),
     Output("month-filter", "value"),
     Output("week-filter", "options"),
@@ -2065,7 +2081,7 @@ def refresh_filters(refresh: int):
     return months, default_month, weeks, default_week, days, default_day
 
 
-@app.callback(
+@dash_app.callback(
     Output("upload-status", "children"),
     Output("upload-refresh", "data"),
     Input("data-upload", "contents"),
@@ -2168,7 +2184,7 @@ def import_data(contents: str | None, filename: str | None, refresh: int):
         return "Import impossible: le fichier ne correspond pas au modele attendu.", refresh
 
 
-@app.callback(
+@dash_app.callback(
     Output("moto-report-detail", "children"),
     Input("moto-search", "value"),
     Input("report-frequency", "value"),
@@ -2177,7 +2193,7 @@ def update_moto_report_detail(moto_id: str | None, mode: str):
     return render_moto_report_detail(moto_id, mode or "daily")
 
 
-@app.callback(
+@dash_app.callback(
     Output("page-content", "children"),
     Output("day-filter", "disabled"),
     Output("week-filter", "disabled"),
@@ -2556,7 +2572,7 @@ def render_page(selected_page: str, group: str, indicator_key: str, selected_mon
     )
 
 
-app.index_string = """
+dash_app.index_string = """
 <!DOCTYPE html>
 <html>
     <head>
@@ -2731,7 +2747,7 @@ if __name__ == "__main__":
     url = "http://127.0.0.1:8060"
     print(f"Ouvrir le dashboard: {url}")
     threading.Timer(1.0, lambda: webbrowser.open_new(url)).start()
-    app.run(
+    dash_app.run(
         debug=False,
         host="127.0.0.1",
         port=8060,
